@@ -2,6 +2,8 @@
 
 A **frontend ORM and reactive state management framework for Vue 3** — strongly-typed models, HTTP-backed stores, and a model-store registry inspired by [Ember Data](https://github.com/emberjs/data).
 
+**[Documentation](https://kitavue.vercel.app)** · **[Live playground](https://kita-playground.vercel.app)** · **[npm](https://www.npmjs.com/package/@ofrusch/kita)**
+
 If you've used a backend ORM (Active Record, Sequelize, Prisma, AdonisJS Lucid, Django ORM…), kita gives you the same mental model on the client: **model classes that mirror API resources, with stores that handle fetching, caching, mutating, and relating records**. The shape your backend ORM serializes is the same shape your frontend model consumes — no hand-rolled fetcher/setter glue between them.
 
 - **Frontend ORM** — `Model` and `AsyncModel` classes with `.save()` / `.delete()` / relations

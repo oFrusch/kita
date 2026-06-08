@@ -13,6 +13,9 @@ hero:
       text: Cookbook
       link: /cookbook/pagination
     - theme: alt
+      text: Playground
+      link: https://kita-playground.vercel.app
+    - theme: alt
       text: View on GitHub
       link: https://github.com/ofrusch/kita
 

@@ -1,6 +1,7 @@
 import { defineConfig } from "vitepress";
 
 const GITHUB = "https://github.com/ofrusch/kita";
+const PLAYGROUND = "https://kita-playground.vercel.app";
 
 export default defineConfig({
   title: "kita",
@@ -22,6 +23,7 @@ export default defineConfig({
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Cookbook", link: "/cookbook/pagination" },
       { text: "API", link: "/api/application-store" },
+      { text: "Playground", link: PLAYGROUND },
       {
         text: "0.2.0",
         items: [
