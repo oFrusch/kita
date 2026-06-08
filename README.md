@@ -322,6 +322,26 @@ The base `AsyncStore` has a smaller surface and simpler typing — pick `AsyncSt
 | `PaginationMeta`     | Pagination response metadata             |
 | `PaginatedResult<T>` | `{ records: T[], meta: PaginationMeta }` |
 
+## Local development
+
+The repo ships a `playground/` Vue 3 app pre-wired against the live source — edits to `src/` HMR into the running app with no publish or build step.
+
+```bash
+pnpm install
+pnpm play   # starts vite on http://localhost:5174
+```
+
+The playground demonstrates `AsyncStore` (pagination + caching), `AsyncStoreSWR` (stale-while-revalidate), optimistic updates, and the Vue DevTools integration. It uses an in-memory `MockHttpClient` so it runs with no backend.
+
+Other scripts:
+
+| Script | What it does |
+|---|---|
+| `pnpm test` | Run the vitest suite (130 tests) |
+| `pnpm typecheck` | Type-check the library source |
+| `pnpm build` | Build `dist/` for publishing (ESM + CJS + `.d.ts`) |
+| `pnpm dev` | tsup watch mode (rebuild `dist/` on save) |
+
 ## Requirements
 
 - Vue 3

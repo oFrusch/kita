@@ -25,8 +25,8 @@ export class ApplicationStore {
     return this;
   }
 
-  getStore<T extends Store<Model>>(recordType: string): T {
-    return this[recordType];
+  getStore<T = Store<Model> | AsyncStore<AsyncModel>>(recordType: string): T {
+    return this[recordType] as T;
   }
 
   install(app: App) {
