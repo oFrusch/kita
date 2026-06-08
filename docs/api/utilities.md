@@ -28,10 +28,11 @@ const user = await tracker.dedupe(`user-${id}`, () => api.get(`/users/${id}`));
 ## `QueryCache`
 
 ```ts
-class QueryCache<T> {
+class QueryCache<T, M = Record<string, unknown>> {
   constructor(defaultTTL?: number); // default 60000ms
   get(params: Record<string, unknown>, ttl?: number): T[] | null;
-  set(params: Record<string, unknown>, data: T[]): void;
+  getEntry(params: Record<string, unknown>, ttl?: number): { data: T[]; meta?: M } | null;
+  set(params: Record<string, unknown>, data: T[], meta?: M): void;
   has(params: Record<string, unknown>, ttl?: number): boolean;
   invalidate(predicate?: (params: Record<string, unknown>) => boolean): void;
   get size(): number;
@@ -48,6 +49,13 @@ const cache = new QueryCache<Item>(60_000); // 1 minute
 cache.set({ q: "hello" }, results);
 cache.get({ q: "hello" });        // results, or null if expired
 cache.invalidate((p) => p.q === "hello");
+```
+
+Pass response metadata as the third `set` argument and read it back with `getEntry` — this is how `AsyncStore.findRecords` preserves pagination `meta` across a cache hit:
+
+```ts
+cache.set({ page: 2 }, results, { page: 2, hasMore: true });
+cache.getEntry({ page: 2 }); // { data: results, meta: { page: 2, hasMore: true } }
 ```
 
 `AsyncStore.findRecords` uses this internally and auto-invalidates on any create/update/delete. Call [`store.invalidateQueries()`](/api/stores#invalidatequeries) after a custom mutation.

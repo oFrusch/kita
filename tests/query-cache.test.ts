@@ -29,6 +29,26 @@ describe("QueryCache", () => {
       expect(result).toBeNull();
     });
 
+    it("getEntry returns records plus stored meta", () => {
+      const cache = new QueryCache<string>();
+      cache.set({ page: 1 }, ["a"], { page: 1, hasMore: true });
+
+      const entry = cache.getEntry({ page: 1 });
+      expect(entry).toEqual({ data: ["a"], meta: { page: 1, hasMore: true } });
+
+      // get() still returns just the records (unchanged contract)
+      expect(cache.get({ page: 1 })).toEqual(["a"]);
+    });
+
+    it("getEntry returns null for an expired entry", () => {
+      const cache = new QueryCache<string>(1000);
+      cache.set({ page: 1 }, ["a"], { page: 1 });
+
+      vi.advanceTimersByTime(1001);
+
+      expect(cache.getEntry({ page: 1 })).toBeNull();
+    });
+
     it("should create consistent keys regardless of property order", () => {
       const cache = new QueryCache<string>();
       const data = ["item1", "item2"];

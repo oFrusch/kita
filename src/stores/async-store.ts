@@ -137,9 +137,9 @@ export class AsyncStore<T extends AsyncModel> {
 
     // Check cache first (unless replacing store)
     if (cache && !replaceStore) {
-      const cached = this.queryCache.get(params, cacheTTL);
+      const cached = this.queryCache.getEntry(params, cacheTTL);
       if (cached) {
-        return { records: cached, meta: undefined };
+        return { records: cached.data, meta: cached.meta };
       }
     }
 
@@ -158,9 +158,9 @@ export class AsyncStore<T extends AsyncModel> {
       if (replaceStore) this.reset();
       const newRecords = recordsJSON.map((json: object) => this.modelType.create(json)) as T[];
 
-      // Cache the results
+      // Cache the results (with meta, so a cache hit can return it too)
       if (cache) {
-        this.queryCache.set(params, newRecords);
+        this.queryCache.set(params, newRecords, meta);
       }
 
       return { records: newRecords, meta };

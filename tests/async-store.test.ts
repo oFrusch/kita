@@ -138,6 +138,23 @@ describe("AsyncStore", () => {
       expect(client.get).toHaveBeenCalledTimes(1);
     });
 
+    it("returns meta on a cache hit, not just on the first fetch (regression)", async () => {
+      client.get.mockResolvedValue(
+        mockResponse({
+          data: [{ id: "1", email: "a" }],
+          meta: { page: 2, totalPages: 5, totalCount: 50, hasMore: true },
+        }),
+      );
+
+      const first = await store.findRecords({ page: 2 });
+      expect(first.meta).toEqual({ page: 2, totalPages: 5, totalCount: 50, hasMore: true });
+
+      // Second call is served from cache — meta must survive the round-trip.
+      const cached = await store.findRecords({ page: 2 });
+      expect(client.get).toHaveBeenCalledTimes(1);
+      expect(cached.meta).toEqual(first.meta);
+    });
+
     it("skips the cache when replaceStore is true", async () => {
       client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
       await store.findRecords({ q: "x" });

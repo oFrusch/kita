@@ -10,6 +10,11 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 - `AsyncStore._createRecord` now merges the server response onto the saved record and stores that model instance, instead of pushing the raw response JSON as a second, non-model record. Fixes duplicate records after a create+save.
 - `AsyncStore.createPaginatedQuery` no longer routes through the record-only query cache, which dropped pagination `meta` on a cache hit and made `hasMore` collapse to `false` after a reset.
 - `PaginatedQuery` state (`hasMore` / `isLoading` / `page` / `totalCount` / `totalPages`) is now backed by Vue refs, so it stays reactive in components — fixes a stuck "loading" state when the query is held in a `ref`/`shallowRef`.
+- `AsyncStore.findRecords` now returns response `meta` on a cache hit, not just on the first fetch. The query cache previously stored records only, so a cached paginated query lost its `meta` (and `hasMore`/`totalCount` with it).
+
+### Added
+
+- `QueryCache` can now store response metadata alongside records: `set(params, data, meta?)` plus a new `getEntry(params, ttl?)` that returns `{ data, meta }`. `get()` is unchanged. The class gains an optional second type param (`QueryCache<T, M>`, `M` defaults to `Record<string, unknown>`).
 
 ### Changed
 
@@ -19,8 +24,8 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 ### Notes
 
 - **Bundle size baseline** (gzip/brotli, peer deps excluded, measured with [size-limit](https://github.com/ai/size-limit) — run `pnpm size`):
-  - Full public surface (`import * as kita`): **3.71 kB**
-  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.31 kB**
+  - Full public surface (`import * as kita`): **3.74 kB**
+  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.33 kB**
 
 ## 0.2.0 — 2026-06-08
 
