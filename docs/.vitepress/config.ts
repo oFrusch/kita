@@ -12,7 +12,7 @@ export default defineConfig({
 
   head: [
     ["meta", { name: "theme-color", content: "#42b883" }],
-    ["link", { rel: "icon", type: "image/png", href: "/logo.png" }],
+    ["link", { rel: "icon", type: "image/png", href: "/favicon.png" }],
   ],
 
   themeConfig: {
