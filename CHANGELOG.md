@@ -4,7 +4,16 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ## Unreleased
 
-(nothing yet)
+### Changed
+
+- Internal refactor: `src/stores/index.ts` and `src/models/index.ts` split into per-class modules (`abstract-store.ts`/`store.ts`/`async-store.ts` and `abstract-model.ts`/`model.ts`/`async-model.ts`). The barrel re-exports are unchanged, so this is invisible to consumers.
+- `@vue/devtools-api` is now lazy-loaded via a dynamic `import()` behind a `process.env.NODE_ENV !== "production"` guard, so production consumer bundles tree-shake it out entirely.
+
+### Notes
+
+- **Bundle size baseline** (gzip/brotli, peer deps excluded, measured with [size-limit](https://github.com/ai/size-limit) — run `pnpm size`):
+  - Full public surface (`import * as kita`): **3.68 kB**
+  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.27 kB**
 
 ## 0.2.0 — 2026-06-08
 
