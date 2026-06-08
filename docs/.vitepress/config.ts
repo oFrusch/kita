@@ -10,9 +10,14 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
 
-  head: [["meta", { name: "theme-color", content: "#42b883" }]],
+  head: [
+    ["meta", { name: "theme-color", content: "#42b883" }],
+    ["link", { rel: "icon", type: "image/png", href: "/logo.png" }],
+  ],
 
   themeConfig: {
+    logo: "/logo.png",
+
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "Cookbook", link: "/cookbook/pagination" },
