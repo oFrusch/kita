@@ -30,10 +30,10 @@ Splitting the larger files and trimming what ships to consumers.
 
 ## Batch 3 — Docs site
 
-- [ ] VitePress site under `docs/`
-- [ ] Cookbook: common patterns (pagination, optimistic updates, SWR, custom HttpClient)
-- [ ] Validation patterns (zod/valibot at the store boundary)
-- [ ] API reference generated from source
+- [x] VitePress site under `docs/`
+- [x] Cookbook: common patterns (pagination, optimistic updates, SWR, custom HttpClient)
+- [x] Validation patterns (zod/valibot at the store boundary)
+- [x] API reference (curated pages — chose hand-written over generated for a surface this small)
 
 ## Batch 4 — Hosted playground
 
