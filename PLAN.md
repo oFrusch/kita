@@ -37,8 +37,8 @@ Splitting the larger files and trimming what ships to consumers.
 
 ## Batch 4 — Hosted playground
 
-- [ ] Deploy `playground/` to Vercel or Cloudflare Pages
-- [ ] Link from README + docs site
+- [x] Deploy `playground/` to Vercel (config in `playground/vercel.json`; separate Vercel project, Root Directory = `playground`. Docs site deploys via root `vercel.json`. Both need a one-time dashboard import.)
+- [x] Link from README + docs site (README links line + docs nav/hero "Playground"; default `*.vercel.app` URLs pending custom domains)
 
 ## Notes
 
