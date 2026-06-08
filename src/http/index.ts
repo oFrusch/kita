@@ -13,7 +13,12 @@ export interface HttpResponse<T = unknown> {
 }
 
 export interface HttpRequestConfig {
-  params?: Record<string, unknown>;
+  /** Query parameters appended to the URL. Loosely typed to mirror axios's `params: any`. */
+  params?: any;
+  /** AbortSignal for request cancellation. */
+  signal?: AbortSignal;
+  /** Per-request headers. */
+  headers?: Record<string, string>;
 }
 
 export interface HttpClient {

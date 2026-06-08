@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/ofrusch/kita/discussions
+    about: For usage questions, ideas, or open-ended discussion, please use Discussions instead of Issues.

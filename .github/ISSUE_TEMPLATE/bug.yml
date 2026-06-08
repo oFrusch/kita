@@ -1,0 +1,64 @@
+name: Bug report
+description: Report something that's broken or behaving unexpectedly.
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill out the sections below so we can reproduce it quickly.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "When I call `users.findRecord('1')` after deleting it, …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Code, StackBlitz/CodeSandbox link, or steps to reproduce. The smaller the better.
+      placeholder: |
+        ```ts
+        // your minimal failing snippet
+        ```
+    validations:
+      required: true
+
+  - type: input
+    id: kita-version
+    attributes:
+      label: kita version
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: vue-version
+    attributes:
+      label: Vue version
+      placeholder: "3.5.x"
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node version
+      placeholder: "22.x"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Logs, stack traces, screenshots — anything that might help.

@@ -1,6 +1,6 @@
 {
   "name": "@ofrusch/kita",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A frontend ORM and reactive state management framework for Vue 3 — typed models, HTTP-backed stores, and a model-store registry inspired by Ember Data.",
   "keywords": [
     "vue",
@@ -32,9 +32,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -48,9 +53,12 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "play": "pnpm --filter kita-playground dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "check:types": "attw --pack .",
+    "size": "size-limit",
     "prepublishOnly": "pnpm run build"
   },
   "peerDependencies": {
@@ -60,14 +68,18 @@
     "@vue/devtools-api": "^7.0.0 || ^8.0.0"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "size-limit": "^12.1.0",
     "tsup": "^8.3.0",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0",
     "vue": "^3.5.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
+  "packageManager": "pnpm@10.4.1",
   "publishConfig": {
     "access": "public"
   }

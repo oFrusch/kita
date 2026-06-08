@@ -12,6 +12,12 @@ If you've used a backend ORM (Active Record, Sequelize, Prisma, AdonisJS Lucid, 
 - **Opt-in SWR** — stale-while-revalidate semantics available as a separate base class
 - **Vue DevTools** — inspect every store and record in your app
 
+## SPA only — no SSR support
+
+kita targets **client-side single-page applications**. Server-side rendering (SSR) and multi-app support are explicitly out of scope for `0.x` and will be addressed in `1.0`.
+
+If you need SSR today, stick with [Pinia](https://pinia.vuejs.org/) or another SSR-compatible state solution. kita's global model registry and singleton store pattern are not designed for the per-request isolation that SSR requires.
+
 ## Why an ORM on the frontend?
 
 Most Vue state libraries give you reactive boxes (refs, stores, signals) and leave domain modeling to you — every component reaches into an axios client, maps raw JSON, and patches into a flat store. That works for small apps; it doesn't scale.
@@ -321,6 +327,26 @@ The base `AsyncStore` has a smaller surface and simpler typing — pick `AsyncSt
 | `FindRecordsOptions` | `findRecords` cache options              |
 | `PaginationMeta`     | Pagination response metadata             |
 | `PaginatedResult<T>` | `{ records: T[], meta: PaginationMeta }` |
+
+## Local development
+
+The repo ships a `playground/` Vue 3 app pre-wired against the live source — edits to `src/` HMR into the running app with no publish or build step.
+
+```bash
+pnpm install
+pnpm play   # starts vite on http://localhost:5174
+```
+
+The playground demonstrates `AsyncStore` (pagination + caching), `AsyncStoreSWR` (stale-while-revalidate), optimistic updates, and the Vue DevTools integration. It uses an in-memory `MockHttpClient` so it runs with no backend.
+
+Other scripts:
+
+| Script | What it does |
+|---|---|
+| `pnpm test` | Run the vitest suite (130 tests) |
+| `pnpm typecheck` | Type-check the library source |
+| `pnpm build` | Build `dist/` for publishing (ESM + CJS + `.d.ts`) |
+| `pnpm dev` | tsup watch mode (rebuild `dist/` on save) |
 
 ## Requirements
 
