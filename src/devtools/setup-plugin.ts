@@ -1,4 +1,3 @@
-import { setupDevtoolsPlugin } from "@vue/devtools-api";
 import { capitalize } from "vue";
 import type { ApplicationStore } from "../application-store";
 import { AsyncModel } from "../models";
@@ -79,7 +78,11 @@ const debounce = (callback: () => void, delay = 300) => {
   };
 };
 
-export default function setupDevtools(app: any) {
+export default async function setupDevtools(app: any) {
+  // Lazy-import so `@vue/devtools-api` lands in a separate chunk and never
+  // ships in production bundles (the call site is guarded out for prod).
+  const { setupDevtoolsPlugin } = await import("@vue/devtools-api");
+
   setupDevtoolsPlugin(
     {
       id: "kita-data-store",
