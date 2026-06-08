@@ -56,3 +56,31 @@
   --vp-button-brand-hover-text: #1c160f;
   --vp-button-brand-active-text: #1c160f;
 }
+
+/* ---- Hero coat texture ----
+ * Procedural fur grain via anisotropic SVG fractal noise (no asset). The
+ * stretched baseFrequency (low-x / high-y) reads as vertical coat strands.
+ * Tinted with the coat tan, kept faint, and masked so it never sits under
+ * the hero text. Hero-scoped only. */
+.VPHome .VPHero {
+  position: relative;
+  isolation: isolate;
+}
+
+.VPHome .VPHero::before {
+  content: "";
+  position: absolute;
+  inset: -2rem 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  background-color: var(--gsd-tan);
+  background-blend-mode: multiply;
+  opacity: 0.05;
+  -webkit-mask-image: radial-gradient(125% 85% at 50% 0%, #000, transparent 70%);
+  mask-image: radial-gradient(125% 85% at 50% 0%, #000, transparent 70%);
+}
+
+.dark .VPHome .VPHero::before {
+  opacity: 0.08;
+}
