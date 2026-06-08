@@ -6,6 +6,7 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ### Added
 
+- **SPA-only scope documented** — kita targets client-side SPAs; SSR and multi-app support are explicitly out of scope for `0.x` and deferred to `1.0`.
 - `playground/` directory with a Vue 3 + Vite testbed for local development. Aliases `@ofrusch/kita` to live source so changes HMR without rebuilding.
 - `CONTRIBUTING.md` and `docs/architecture.md` covering local workflow, conventions, and internals.
 
