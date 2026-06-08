@@ -49,7 +49,7 @@ The playground uses an in-memory `MockHttpClient` with artificial 200ms latency 
 - **TypeScript strict mode.** `pnpm typecheck` must pass before merge.
 - **No `any` in public types.** Internal `any` casts (e.g. `client.get<any>`) are fine for HTTP boundaries where response shapes are inherently unknown to the library.
 - **No type assertions in test code.** If a test needs `as Foo`, that usually points at a real typing gap in the library — fix the library, not the test. (See the Model.create polymorphic-`this` refactor as the canonical example.)
-- **One file per public class** is the loose convention, but the `stores/index.ts` and `models/index.ts` barrel files are intentional — see [`docs/architecture.md`](./docs/architecture.md).
+- **One file per public class.** `models/` and `stores/` keep each class in its own file behind a barrel `index.ts` that re-exports them — see [`docs/guide/architecture.md`](./docs/guide/architecture.md).
 - **No comments explaining what the code does.** Names should do that work. Only comment the *why* when it's non-obvious (a workaround, a constraint, a perf invariant).
 
 ## Publishing a release

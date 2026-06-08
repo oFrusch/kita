@@ -160,15 +160,23 @@ src/
 ├── model-store-registry.ts ModelStoreRegistry singleton
 ├── decorators/
 │   └── reactive.ts         @reactive Stage 3 decorator
-├── models/index.ts         AbstractModel / Model / AsyncModel / registerModel
-├── stores/index.ts         AbstractStore / Store / AsyncStore
+├── models/                 one class per file, re-exported from index.ts
+│   ├── abstract-model.ts    AbstractModel
+│   ├── model.ts             Model
+│   ├── async-model.ts       AsyncModel
+│   └── index.ts             barrel + registerModel / connectToStore
+├── stores/                 one class per file, re-exported from index.ts
+│   ├── abstract-store.ts    AbstractStore + FindRecordsOptions
+│   ├── store.ts             Store
+│   ├── async-store.ts       AsyncStore
+│   └── index.ts             barrel
 ├── swr/index.ts            AsyncStoreSWR
 ├── http/index.ts           HttpClient / HttpResponse / HttpRequestConfig
-├── devtools/               Vue DevTools plugin
+├── devtools/               Vue DevTools plugin (dev-only, lazy-loaded)
 └── utils/                  RequestTracker / QueryCache / PaginatedQuery / withOptimisticUpdate
 ```
 
-A few of these — `models/index.ts`, `stores/index.ts` — are barrel files holding multiple classes. The original `vandal-app` placed each class in its own file; the consolidated barrels are easier to navigate because the classes form a tight inheritance hierarchy and reading them together gives more context than chasing imports.
+`models/` and `stores/` keep one class per file behind a barrel `index.ts`, so the public import paths (`@ofrusch/kita`) and internal ones (`../stores`) are unchanged. The classes still form a tight inheritance hierarchy — read them in dependency order: `abstract-*` → `model`/`store` → `async-*`.
 
 ## Things that *aren't* kita's concern
 

@@ -18,6 +18,10 @@ npm-debug.log*
 coverage/
 .vitest/
 
+# vitepress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
 # misc
 .env
 .env.local
