@@ -14,19 +14,19 @@ Breaking API cleanup, infrastructure, and the bits required before we tell anyon
 - [x] Update tests for new public API
 - [x] Issue templates (`bug.yml`, `feature.yml`, `config.yml`)
 - [ ] `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1)
-- [ ] Add `attw` (Are The Types Wrong) — `@arethetypeswrong/cli` devDep + `check:types` script (CI already calls it)
-- [ ] SPA-only documentation — prominent README warning + CHANGELOG entry, SSR deferred to 1.0
-- [ ] Bump version `0.1.1` → `0.2.0` (breaking: protected CRUD methods, Symbol provide key)
+- [x] Add `attw` (Are The Types Wrong) — `@arethetypeswrong/cli` devDep + `check:types` script (CI already calls it)
+- [x] SPA-only documentation — prominent README warning + CHANGELOG entry, SSR deferred to 1.0
+- [x] Bump version `0.1.1` → `0.2.0` (breaking: protected CRUD methods, Symbol provide key)
 - [ ] Update vandal-app for new kita API (after publish)
 
 ## Batch 2 — Code organization + bundle
 
 Splitting the larger files and trimming what ships to consumers.
 
-- [ ] Split `src/stores/index.ts` → `abstract-store.ts`, `store.ts`, `async-store.ts`
-- [ ] Split `src/models/index.ts` similarly
-- [ ] Lazy-load `@vue/devtools-api` so prod bundles can drop it
-- [ ] Bundle analysis pass (size-limit or similar), document baseline in CHANGELOG
+- [x] Split `src/stores/index.ts` → `abstract-store.ts`, `store.ts`, `async-store.ts`
+- [x] Split `src/models/index.ts` similarly
+- [x] Lazy-load `@vue/devtools-api` so prod bundles can drop it
+- [x] Bundle analysis pass (size-limit or similar), document baseline in CHANGELOG
 
 ## Batch 3 — Docs site
 
