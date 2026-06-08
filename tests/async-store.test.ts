@@ -160,69 +160,79 @@ describe("AsyncStore", () => {
     });
   });
 
-  describe("CRUD methods", () => {
-    it("_createRecord POSTs the serialized body and pushes the response", async () => {
+  describe("save / delete", () => {
+    it("save() POSTs the serialized body when the record is new", async () => {
       const draft = UserModel.create({ email: "a@b.com" });
       client.post.mockResolvedValue(mockResponse({ id: "1", email: "a@b.com" }));
 
-      await store._createRecord(draft);
+      await store.save(draft);
 
       expect(client.post).toHaveBeenCalledWith("/users/", expect.any(String));
+      expect(client.put).not.toHaveBeenCalled();
       expect(store.peekRecord("1")).toBeDefined();
     });
 
-    it("_updateRecord PUTs to /<id>/ and merges the response", async () => {
+    it("save() PUTs to /<id>/ when the record already has an id", async () => {
       const m = UserModel.create({ id: "1", email: "old" });
       client.put.mockResolvedValue(mockResponse({ id: "1", email: "new" }));
 
-      const result = await store._updateRecord(m);
+      const result = await store.save(m);
 
       expect(client.put).toHaveBeenCalledWith("/users/1/", expect.any(String));
+      expect(client.post).not.toHaveBeenCalled();
       expect(result.email).toBe("new");
     });
 
-    it("_deleteRecord DELETEs and removes the record from the store", async () => {
+    it("delete() DELETEs and removes the record from the store", async () => {
       const m = UserModel.create({ id: "1", email: "x" });
       client.delete.mockResolvedValue(mockResponse({}));
 
-      await store._deleteRecord(m);
+      await store.delete(m);
 
       expect(client.delete).toHaveBeenCalledWith("/users/1/");
       expect(store.peekRecord("1")).toBeUndefined();
     });
+
+    it("delete() on a new record (no id) just removes locally (no DELETE)", async () => {
+      const m = UserModel.create({ email: "x" });
+
+      await store.delete(m);
+
+      expect(client.delete).not.toHaveBeenCalled();
+    });
   });
 
   describe("queryCache auto-invalidation on mutations", () => {
-    it("invalidates the query cache after _createRecord", async () => {
+    it("invalidates the query cache after creating a record", async () => {
       client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
       await store.findRecords({ q: "x" });
 
       client.post.mockResolvedValue(mockResponse({ id: "2", email: "b" }));
-      await store._createRecord(UserModel.create({ email: "b" }));
+      await store.save(UserModel.create({ email: "b" }));
 
       await store.findRecords({ q: "x" });
       expect(client.get).toHaveBeenCalledTimes(2);
     });
 
-    it("invalidates the query cache after _updateRecord", async () => {
+    it("invalidates the query cache after updating a record", async () => {
       client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
       await store.findRecords({ q: "x" });
 
       const m = UserModel.create({ id: "1", email: "a" });
       client.put.mockResolvedValue(mockResponse({ id: "1", email: "z" }));
-      await store._updateRecord(m);
+      await store.save(m);
 
       await store.findRecords({ q: "x" });
       expect(client.get).toHaveBeenCalledTimes(2);
     });
 
-    it("invalidates the query cache after _deleteRecord", async () => {
+    it("invalidates the query cache after deleting a record", async () => {
       client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
       await store.findRecords({ q: "x" });
 
       const m = UserModel.create({ id: "1", email: "a" });
       client.delete.mockResolvedValue(mockResponse({}));
-      await store._deleteRecord(m);
+      await store.delete(m);
 
       await store.findRecords({ q: "x" });
       expect(client.get).toHaveBeenCalledTimes(2);

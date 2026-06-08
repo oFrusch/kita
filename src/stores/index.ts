@@ -261,21 +261,47 @@ class AsyncStore<T extends AsyncModel> {
     this.queryCache.invalidate(predicate);
   }
 
-  public async _updateRecord(record: T): Promise<T> {
+  /**
+   * Persist a record. POSTs if the record is new (no id), PUTs otherwise.
+   * Returns the server-confirmed record.
+   *
+   * Higher-level than the protected `_createRecord` / `_updateRecord` —
+   * normal consumer code should call this (or `model.save()`).
+   */
+  public async save(record: T): Promise<T> {
+    return record.isNew ? this._createRecord(record) : this._updateRecord(record);
+  }
+
+  /**
+   * Delete a record. Removes locally if the record is new (no id),
+   * otherwise issues a DELETE then removes locally.
+   *
+   * Higher-level than the protected `_deleteRecord` — normal consumer
+   * code should call this (or `model.delete()`).
+   */
+  public async delete(record: T): Promise<void> {
+    if (record.isNew) {
+      this._removeRecord(record);
+      return;
+    }
+    await this._deleteRecord(record);
+  }
+
+  protected async _updateRecord(record: T): Promise<T> {
     const res = await this.client.put<any>(`/${this.APIUrl}/${record.id}/`, record.serialize());
     const updatedRecord = Object.assign(record, res.data);
     this.queryCache.invalidate();
     return updatedRecord;
   }
 
-  public async _createRecord(record: T): Promise<T> {
+  protected async _createRecord(record: T): Promise<T> {
     const res = await this.client.post<any>(`/${this.APIUrl}/`, record.serialize());
     const newRecord = this._pushRecord(res.data);
     this.queryCache.invalidate();
     return newRecord;
   }
 
-  public async _deleteRecord(record: T) {
+  protected async _deleteRecord(record: T) {
     await this.client.delete(`/${this.APIUrl}/${record?.id}/`);
     this._removeRecord(record);
     this.queryCache.invalidate();

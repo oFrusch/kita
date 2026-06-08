@@ -59,26 +59,26 @@ class AsyncModel extends AbstractModel {
     if (!this.store) {
       throw new Error("You must define a store in the model class in order to use this function");
     }
-
-    const savePromise = this.isNew
-      ? this.store._createRecord(this)
-      : this.store._updateRecord(this);
-
-    const data = await savePromise;
-
+    const data = await this.store.save(this);
     Object.assign(this, { ...data });
+  }
+
+  /**
+   * Apply a partial patch and persist. Equivalent to `Object.assign(this, patch); await this.save();`.
+   *
+   * @example
+   * await user.update({ email: "new@example.com" });
+   */
+  async update(patch: Record<string, unknown>): Promise<void> {
+    Object.assign(this, patch);
+    await this.save();
   }
 
   async delete(): Promise<void> {
     if (!this.store) {
       throw new Error("You must define a store in the model class in order to use this function");
     }
-
-    if (this.isNew) {
-      this.store._removeRecord(this);
-    } else {
-      await this.store._deleteRecord(this);
-    }
+    await this.store.delete(this);
   }
 
   static create<T extends AsyncModel, U>(
@@ -116,7 +116,20 @@ function registerModel<T extends typeof AsyncModel | typeof Model>(modelClass: T
   ModelStoreRegistry.registerModel(modelClass);
 }
 
-// Keep connectToStore for backwards compatibility, but it's deprecated
+/**
+ * @deprecated Use `registerModel(this)` in a `static {}` initialization block instead.
+ * `connectToStore` will be removed in a future major release.
+ *
+ * @example
+ * // Old (deprecated):
+ * @connectToStore
+ * class UserModel extends AsyncModel { … }
+ *
+ * // New:
+ * class UserModel extends AsyncModel {
+ *   static { registerModel(this); }
+ * }
+ */
 function connectToStore<T extends typeof AsyncModel>(cls: T) {
   ModelStoreRegistry.registerModel(cls);
 }

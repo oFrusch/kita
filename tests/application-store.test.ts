@@ -4,6 +4,7 @@ import {
   ApplicationStore,
   createAndRegisterStore,
   createStore,
+  KITA_STORE_KEY,
 } from "../src/application-store";
 import registry from "../src/model-store-registry";
 import { AsyncModel, Model, registerModel } from "../src/models";
@@ -104,13 +105,13 @@ describe("ApplicationStore", () => {
   });
 
   describe("Vue plugin (install)", () => {
-    it("calls app.provide('store', appStore)", () => {
+    it("calls app.provide(KITA_STORE_KEY, appStore)", () => {
       const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
       const fakeApp = createFakeVueApp();
 
       appStore.install(fakeApp as unknown as App);
 
-      expect(fakeApp.provide).toHaveBeenCalledWith("store", appStore);
+      expect(fakeApp.provide).toHaveBeenCalledWith(KITA_STORE_KEY, appStore);
     });
 
     it("attaches the store to app.config.globalProperties", () => {

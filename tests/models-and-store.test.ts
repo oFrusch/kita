@@ -127,6 +127,16 @@ describe("AsyncModel", () => {
     expect(client.delete).not.toHaveBeenCalled();
   });
 
+  it("update(patch) applies the patch then saves", async () => {
+    const u = UserModel.create({ id: "1", email: "old@x.com" });
+    client.put.mockResolvedValue(mockResponse({ id: "1", email: "new@x.com" }));
+
+    await u.update({ email: "new@x.com" });
+
+    expect(client.put).toHaveBeenCalledWith("/users/1/", expect.any(String));
+    expect(u.email).toBe("new@x.com");
+  });
+
   it("save() throws when no store is associated", async () => {
     const orphan = new UserModel({ email: "x" });
     await expect(orphan.save()).rejects.toThrow();
