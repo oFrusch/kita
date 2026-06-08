@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { computed } from "vue";
 import { PaginatedQuery, type PaginatedResult } from "../src/utils/pagination";
 
 describe("PaginatedQuery", () => {
@@ -29,6 +30,35 @@ describe("PaginatedQuery", () => {
       expect(query.isLoading).toBe(false);
       expect(query.totalCount).toBe(0);
       expect(query.totalPages).toBe(0);
+    });
+  });
+
+  describe("reactivity (regression)", () => {
+    it("isLoading / hasMore drive Vue reactive effects", async () => {
+      let resolvePromise: (value: PaginatedResult<string>) => void;
+      const fetcher = vi.fn().mockImplementation(
+        () => new Promise<PaginatedResult<string>>((resolve) => (resolvePromise = resolve)),
+      );
+      const query = new PaginatedQuery(fetcher);
+
+      // A computed that tracks the query's loading state. If the state weren't
+      // reactive, this would stay `false` after loadMore mutates it.
+      const loading = computed(() => query.isLoading);
+      const hasMore = computed(() => query.hasMore);
+      expect(loading.value).toBe(false);
+      expect(hasMore.value).toBe(true);
+
+      const p = query.loadMore();
+      expect(loading.value).toBe(true); // re-evaluates because the ref changed
+
+      resolvePromise!({
+        records: ["a"],
+        meta: { page: 1, totalPages: 1, totalCount: 1, hasMore: false },
+      });
+      await p;
+
+      expect(loading.value).toBe(false);
+      expect(hasMore.value).toBe(false);
     });
   });
 

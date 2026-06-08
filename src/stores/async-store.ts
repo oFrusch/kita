@@ -210,7 +210,11 @@ export class AsyncStore<T extends AsyncModel> {
 
   protected async _createRecord(record: T): Promise<T> {
     const res = await this.client.post<any>(`/${this.APIUrl}/`, record.serialize());
-    const newRecord = this._pushRecord(res.data);
+    // Merge the server response (which carries the assigned id) onto the record
+    // being saved, then register that model instance under its new id. Pushing
+    // `res.data` directly would store raw JSON as a *second*, non-model record.
+    Object.assign(record, res.data);
+    const newRecord = this._pushRecord(record);
     this.queryCache.invalidate();
     return newRecord;
   }
@@ -325,7 +329,11 @@ export class AsyncStore<T extends AsyncModel> {
    */
   public createPaginatedQuery(params: Record<string, unknown> = {}): PaginatedQuery<T> {
     return new PaginatedQuery(async (page) => {
-      const { records, meta } = await this.findRecords({ ...params, page });
+      // `cache: false` — the query cache stores records only, so a cache hit
+      // returns `meta: undefined` and the pagination math below collapses to
+      // `hasMore: false`. Each page is fetched once during a scroll anyway, and
+      // a reset is meant to refetch, so caching here is both wrong and useless.
+      const { records, meta } = await this.findRecords({ ...params, page }, { cache: false });
       return {
         records,
         meta: {

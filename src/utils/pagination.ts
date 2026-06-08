@@ -1,3 +1,5 @@
+import { ref } from "vue";
+
 /**
  * Metadata returned from paginated API responses.
  */
@@ -18,40 +20,43 @@ export interface PaginatedResult<T> {
 
 /**
  * Manages paginated data fetching with automatic page tracking.
- * Provides reactive state for loading, hasMore, and current page.
+ *
+ * State is backed by Vue `ref`s so the getters are reactive: read `hasMore` /
+ * `isLoading` / `page` in a template or `computed` and they update as pages
+ * load, even when the query instance is held in a `shallowRef`.
  */
 export class PaginatedQuery<T> {
-  private currentPage = 1;
-  private _hasMore = true;
-  private _isLoading = false;
-  private _totalCount = 0;
-  private _totalPages = 0;
+  private _currentPage = ref(1);
+  private _hasMore = ref(true);
+  private _isLoading = ref(false);
+  private _totalCount = ref(0);
+  private _totalPages = ref(0);
 
   constructor(private fetcher: (page: number) => Promise<PaginatedResult<T>>) {}
 
   /** Whether more pages are available to load */
   get hasMore(): boolean {
-    return this._hasMore;
+    return this._hasMore.value;
   }
 
   /** Whether a fetch is currently in progress */
   get isLoading(): boolean {
-    return this._isLoading;
+    return this._isLoading.value;
   }
 
   /** Current page number (1-indexed) */
   get page(): number {
-    return this.currentPage;
+    return this._currentPage.value;
   }
 
   /** Total number of records across all pages (if known) */
   get totalCount(): number {
-    return this._totalCount;
+    return this._totalCount.value;
   }
 
   /** Total number of pages (if known) */
   get totalPages(): number {
-    return this._totalPages;
+    return this._totalPages.value;
   }
 
   /**
@@ -59,18 +64,18 @@ export class PaginatedQuery<T> {
    * Returns empty array if no more pages or already loading.
    */
   async loadMore(): Promise<T[]> {
-    if (!this._hasMore || this._isLoading) return [];
+    if (!this._hasMore.value || this._isLoading.value) return [];
 
-    this._isLoading = true;
+    this._isLoading.value = true;
     try {
-      const { records, meta } = await this.fetcher(this.currentPage);
-      this._hasMore = meta.hasMore;
-      this._totalCount = meta.totalCount;
-      this._totalPages = meta.totalPages;
-      this.currentPage++;
+      const { records, meta } = await this.fetcher(this._currentPage.value);
+      this._hasMore.value = meta.hasMore;
+      this._totalCount.value = meta.totalCount;
+      this._totalPages.value = meta.totalPages;
+      this._currentPage.value++;
       return records;
     } finally {
-      this._isLoading = false;
+      this._isLoading.value = false;
     }
   }
 
@@ -78,10 +83,10 @@ export class PaginatedQuery<T> {
    * Reset pagination state to fetch from the beginning.
    */
   reset(): void {
-    this.currentPage = 1;
-    this._hasMore = true;
-    this._isLoading = false;
-    this._totalCount = 0;
-    this._totalPages = 0;
+    this._currentPage.value = 1;
+    this._hasMore.value = true;
+    this._isLoading.value = false;
+    this._totalCount.value = 0;
+    this._totalPages.value = 0;
   }
 }

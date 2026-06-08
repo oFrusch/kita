@@ -4,6 +4,13 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ## Unreleased
 
+### Fixed
+
+- `AsyncModel.create(...)` no longer eagerly registers an id-less draft in its store (it was stored under an `undefined` key). Combined with the fix below, `Model.create({...}); await model.save()` now leaves exactly one record in the store.
+- `AsyncStore._createRecord` now merges the server response onto the saved record and stores that model instance, instead of pushing the raw response JSON as a second, non-model record. Fixes duplicate records after a create+save.
+- `AsyncStore.createPaginatedQuery` no longer routes through the record-only query cache, which dropped pagination `meta` on a cache hit and made `hasMore` collapse to `false` after a reset.
+- `PaginatedQuery` state (`hasMore` / `isLoading` / `page` / `totalCount` / `totalPages`) is now backed by Vue refs, so it stays reactive in components — fixes a stuck "loading" state when the query is held in a `ref`/`shallowRef`.
+
 ### Changed
 
 - Internal refactor: `src/stores/index.ts` and `src/models/index.ts` split into per-class modules (`abstract-store.ts`/`store.ts`/`async-store.ts` and `abstract-model.ts`/`model.ts`/`async-model.ts`). The barrel re-exports are unchanged, so this is invisible to consumers.
@@ -12,8 +19,8 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 ### Notes
 
 - **Bundle size baseline** (gzip/brotli, peer deps excluded, measured with [size-limit](https://github.com/ai/size-limit) — run `pnpm size`):
-  - Full public surface (`import * as kita`): **3.68 kB**
-  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.27 kB**
+  - Full public surface (`import * as kita`): **3.71 kB**
+  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.31 kB**
 
 ## 0.2.0 — 2026-06-08
 

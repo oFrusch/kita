@@ -304,6 +304,23 @@ describe("AsyncStore", () => {
     });
   });
 
+  describe("create() + save() identity (regression)", () => {
+    it("stores exactly one model-typed record, not a duplicate raw-json entry", async () => {
+      client.post.mockResolvedValue(mockResponse({ id: "100", email: "new@x.com" }));
+
+      const draft = UserModel.create({ email: "new@x.com" });
+      await draft.save();
+
+      const matches = store.records.filter((r) => r.email === "new@x.com");
+      expect(matches).toHaveLength(1); // no duplicate raw-json entry
+      expect(matches[0]).toBeInstanceOf(UserModel); // a model, not raw json
+      // The cached record is the saved draft itself (identity preserved),
+      // not a second object built from the response.
+      expect(store.peekRecord("100")).toBe(draft);
+      expect(draft.id).toBe("100");
+    });
+  });
+
   describe("createPaginatedQuery", () => {
     it("wraps findRecords behind a PaginatedQuery", async () => {
       client.get.mockResolvedValue(
@@ -319,6 +336,27 @@ describe("AsyncStore", () => {
       expect(records).toHaveLength(1);
       expect(q.hasMore).toBe(false);
       expect(q.totalCount).toBe(1);
+    });
+
+    it("reports hasMore correctly on a fresh query after a page was cached (regression)", async () => {
+      client.get.mockResolvedValue(
+        mockResponse({
+          data: [{ id: "1", email: "a" }],
+          meta: { page: 1, totalPages: 3, totalCount: 12, hasMore: true },
+        }),
+      );
+
+      // First query loads page 1 (this used to populate the query cache).
+      const q1 = store.createPaginatedQuery();
+      await q1.loadMore();
+      expect(q1.hasMore).toBe(true);
+
+      // A reset creates a brand-new query that fetches page 1 again. The cache
+      // must not swallow `meta` and collapse hasMore to false.
+      const q2 = store.createPaginatedQuery();
+      await q2.loadMore();
+      expect(q2.hasMore).toBe(true);
+      expect(q2.totalCount).toBe(12);
     });
   });
 

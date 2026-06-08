@@ -49,10 +49,17 @@ export class AsyncModel extends AbstractModel {
     const modelType = (newRecord.constructor as any).id;
     newRecord.store = ModelStoreRegistry.getStore(modelType) as AsyncStore<T>;
 
-    try {
-      newRecord.store._pushRecord(newRecord);
-    } catch (e) {
-      console.error(`No store found for model of type ${modelType}`);
+    // Only register records that already have an identity. An id-less draft
+    // (e.g. `Model.create({ title })` before save) has nothing to key on — it
+    // gets pushed under its real id by `save()` / `_createRecord`. Pushing it
+    // here would pollute the lookup map under an `undefined` key and leave a
+    // duplicate behind once the server assigns the real id.
+    if (newRecord.id != null) {
+      try {
+        newRecord.store._pushRecord(newRecord);
+      } catch (e) {
+        console.error(`No store found for model of type ${modelType}`);
+      }
     }
 
     return newRecord;
