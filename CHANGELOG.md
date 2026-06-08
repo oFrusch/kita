@@ -4,6 +4,15 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ## Unreleased
 
+(nothing yet)
+
+## 0.2.0 — 2026-06-08
+
+### Breaking Changes
+
+- `AsyncStore._createRecord`, `._updateRecord`, `._deleteRecord` are now `protected`. Use the new public `save(record)` and `delete(record)` methods, which route automatically based on `record.isNew`.
+- The Vue provide key for the application store is now a Symbol (`KITA_STORE_KEY`) instead of the string `"store"`. Update any `inject("store", ...)` calls to `inject(KITA_STORE_KEY, ...)`.
+
 ### Added
 
 - **SPA-only scope documented** — kita targets client-side SPAs; SSR and multi-app support are explicitly out of scope for `0.x` and deferred to `1.0`.
@@ -41,6 +50,7 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 - Vue DevTools integration via `dataStorePlugin`.
 - ESM + CJS dual build with `.d.ts` types.
 
-[unreleased]: https://github.com/ofrusch/kita/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/ofrusch/kita/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ofrusch/kita/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ofrusch/kita/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ofrusch/kita/releases/tag/v0.1.0

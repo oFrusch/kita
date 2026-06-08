@@ -1,6 +1,6 @@
 {
   "name": "@ofrusch/kita",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A frontend ORM and reactive state management framework for Vue 3 — typed models, HTTP-backed stores, and a model-store registry inspired by Ember Data.",
   "keywords": [
     "vue",
