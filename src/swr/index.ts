@@ -98,10 +98,7 @@ export class AsyncStoreSWR<T extends AsyncModel> extends AsyncStore<T> {
   /**
    * Override the base fetch to stamp the record with a fresh timestamp.
    */
-  protected async _fetchAndCacheRecord(
-    id: string,
-    params: Record<string, unknown>,
-  ): Promise<T> {
+  protected async _fetchAndCacheRecord(id: string, params: Record<string, unknown>): Promise<T> {
     const record = await super._fetchAndCacheRecord(id, params);
     this.recordTimestamps.set(id, Date.now());
     return record;

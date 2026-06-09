@@ -57,7 +57,7 @@ export class AsyncModel extends AbstractModel {
     if (newRecord.id != null) {
       try {
         newRecord.store._pushRecord(newRecord);
-      } catch (e) {
+      } catch {
         console.error(`No store found for model of type ${modelType}`);
       }
     }

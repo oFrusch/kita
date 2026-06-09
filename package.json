@@ -62,6 +62,10 @@
     "typecheck": "tsc --noEmit",
     "check:types": "attw --pack .",
     "size": "size-limit",
+    "lint": "oxlint src/ tests/",
+    "lint:fix": "oxlint --fix src/ tests/",
+    "format": "oxfmt src/ tests/",
+    "format:check": "oxfmt --check src/ tests/",
     "prepublishOnly": "pnpm run build"
   },
   "peerDependencies": {
@@ -73,6 +77,8 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
     "@size-limit/preset-small-lib": "^12.1.0",
+    "oxfmt": "^0.54.0",
+    "oxlint": "^1.69.0",
     "size-limit": "^12.1.0",
     "tsup": "^8.3.0",
     "typescript": "^5.5.0",

@@ -36,9 +36,11 @@ describe("PaginatedQuery", () => {
   describe("reactivity (regression)", () => {
     it("isLoading / hasMore drive Vue reactive effects", async () => {
       let resolvePromise: (value: PaginatedResult<string>) => void;
-      const fetcher = vi.fn().mockImplementation(
-        () => new Promise<PaginatedResult<string>>((resolve) => (resolvePromise = resolve)),
-      );
+      const fetcher = vi
+        .fn()
+        .mockImplementation(
+          () => new Promise<PaginatedResult<string>>((resolve) => (resolvePromise = resolve)),
+        );
       const query = new PaginatedQuery(fetcher);
 
       // A computed that tracks the query's loading state. If the state weren't
