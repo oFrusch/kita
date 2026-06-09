@@ -98,10 +98,7 @@ export class AsyncStore<T extends AsyncModel> {
    * Fetch a record from the API and merge it into the local cache.
    * Exposed as `protected` so SWR/custom subclasses can hook into the fetch path.
    */
-  protected async _fetchAndCacheRecord(
-    id: string,
-    params: Record<string, unknown>,
-  ): Promise<T> {
+  protected async _fetchAndCacheRecord(id: string, params: Record<string, unknown>): Promise<T> {
     const cacheKey = `findRecord:${id}:${JSON.stringify(params)}`;
 
     return this.requestTracker.dedupe(cacheKey, async () => {

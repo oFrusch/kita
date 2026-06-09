@@ -41,10 +41,7 @@ export class QueryCache<T, M = Record<string, unknown>> {
    * (unexpired) entry exists, else null. Use this when the cached query carried
    * response metadata (e.g. pagination meta) you need on a cache hit.
    */
-  getEntry(
-    params: Record<string, unknown>,
-    ttl = this.defaultTTL,
-  ): { data: T[]; meta?: M } | null {
+  getEntry(params: Record<string, unknown>, ttl = this.defaultTTL): { data: T[]; meta?: M } | null {
     const key = this.makeKey(params);
     const entry = this.cache.get(key);
 
