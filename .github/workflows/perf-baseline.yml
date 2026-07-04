@@ -1,0 +1,42 @@
+name: perf-baseline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebaseline:
+    name: Regenerate perf baseline
+    runs-on: ubuntu-24.04 # pinned: valgrind version must stay fixed (ubuntu-latest drifts)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Regenerate baseline
+        run: pnpm bench:update
+
+      - name: Open PR with the new baseline
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: perf/rebaseline
+          title: "chore | refresh perf baseline"
+          commit-message: "chore | refresh perf baseline"
+          body: |
+            Regenerated `bench/baseline.json` on the pinned CI toolchain
+            (Node 22 + distro valgrind) via the `perf-baseline` workflow.
+          add-paths: bench/baseline.json
