@@ -6,7 +6,7 @@ import { measureCase } from "./measure.mjs";
 import { findValgrind } from "./valgrind.mjs";
 
 const BASELINE = fileURLToPath(new URL("../baseline.json", import.meta.url));
-const REPS = Number(process.env.BENCH_REPS ?? "3");
+const REPS = Number(process.env.BENCH_REPS ?? "2");
 
 const cases = {};
 for (const c of CASES) {

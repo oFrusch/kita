@@ -49,7 +49,7 @@ jobs:
 
   size:
     name: Bundle size
-    runs-on: ubuntu-24.04 # pinned: valgrind version must stay fixed (ubuntu-latest drifts)
+    runs-on: ubuntu-24.04 # pinned for reproducible bundle measurement across runs
     # size-limit-action is PR-oriented (reads the base branch for the delta + comment); skip on push.
     if: github.event_name == 'pull_request'
 
