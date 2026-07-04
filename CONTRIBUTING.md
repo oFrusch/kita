@@ -28,7 +28,7 @@ For a one-shot full run:
 pnpm test
 ```
 
-The suite has 130 tests across 10 files covering every public class — `@reactive`, `ModelStoreRegistry`, `Model`, `AsyncModel`, `Store`, `AsyncStore`, `AsyncStoreSWR`, `ApplicationStore`, and the four utility classes (`RequestTracker`, `QueryCache`, `PaginatedQuery`, `withOptimisticUpdate`).
+The suite has 138 tests across 10 files covering every public class — `@reactive`, `ModelStoreRegistry`, `Model`, `AsyncModel`, `Store`, `AsyncStore`, `AsyncStoreSWR`, `ApplicationStore`, and the four utility classes (`RequestTracker`, `QueryCache`, `PaginatedQuery`, `withOptimisticUpdate`).
 
 When you add a new feature or public method, add at least one test before opening the PR.
 
@@ -52,6 +52,32 @@ The playground uses an in-memory `MockHttpClient` with artificial 200ms latency 
 - **One file per public class.** `models/` and `stores/` keep each class in its own file behind a barrel `index.ts` that re-exports them — see [`docs/guide/architecture.md`](./docs/guide/architecture.md).
 - **No comments explaining what the code does.** Names should do that work. Only comment the *why* when it's non-obvious (a workaround, a constraint, a perf invariant).
 
+### Code style
+
+`pnpm lint` (oxlint) and `pnpm format:check` (oxfmt) must both pass. Beyond what those
+enforce, two conventions the formatter does not catch — match the surrounding code:
+
+- **Vertical whitespace separates logical groups.** Put blank lines between a block of
+  declarations, guard clauses, and the final return. Code should breathe. For example:
+
+  ```ts
+  function myFunc(z: number): boolean {
+    const x = 1
+    const y = 2
+
+    if (!z) return false
+
+    return x + y < z
+  }
+  ```
+
+  rather than the same body packed with no blank lines between the declarations, the
+  guard, and the return.
+
+- **Functional array methods over imperative loops.** Prefer `.map` / `.filter` /
+  `.reduce` / `.forEach` over `for` / `while` when there's a clean functional equivalent
+  (a transform, filter, or accumulation).
+
 ## Publishing a release
 
 The package is published to npm as `@ofrusch/kita`.
@@ -64,7 +90,7 @@ The package is published to npm as `@ofrusch/kita`.
 #    - major (x.0.0): breaking changes
 
 # 2. ensure quality
-pnpm test           # all 130 must pass
+pnpm test           # all 138 must pass
 pnpm typecheck      # clean
 pnpm build          # produces dist/ — ESM, CJS, .d.ts
 
@@ -86,8 +112,15 @@ The `files` field in `package.json` controls what ends up in the published tarba
 ## Branch and PR conventions
 
 - One feature per PR. Keep the diff reviewable.
-- Squash on merge. Commit messages should follow conventional-commit style (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
-- Reference the issue if there is one.
+- **Squash on merge** — so the PR title becomes the commit message. Title format:
+  **`<type> | <summary>`**, where `<type>` is one of `feat`, `chore`, `bug`, `perf`
+  (performance). A pipe separates type and summary, e.g. `feat | preserve query meta across findRecords cache hits`.
+- **PR body** has three sections:
+  - **What** — what is materially changed.
+  - **Why** — why the change was made.
+  - **How** — the mechanics: high-level design and the idea behind it, no deep code
+    references.
+- Reference the issue if there is one (`Closes #N`).
 
 ## Working on the playground itself
 
