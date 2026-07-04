@@ -19,6 +19,6 @@ export function body(state: {
   key: string;
   resolved: () => Promise<string>;
 }): number {
-  const p = state.tracker.dedupe(state.key, state.resolved);
+  const p: unknown = state.tracker.dedupe(state.key, state.resolved);
   return p ? 1 : 0;
 }

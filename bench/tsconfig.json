@@ -1,0 +1,10 @@
+{
+  // Separate project so the bench `.ts` sources (which use Node globals and
+  // stage-3 decorators, and which esbuild bundles rather than tsc) get real
+  // static type-checking. Without this they were only transpiled, so a rename
+  // of a measured src API would rot a bench case silently. Node globals come
+  // from bench/types.d.ts (see it for why not @types/node). The `.mjs` harness
+  // orchestration is intentionally excluded — it stays untyped, like measure.mjs.
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts"]
+}

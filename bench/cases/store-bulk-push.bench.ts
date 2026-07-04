@@ -4,12 +4,15 @@ import type { HttpClient } from "../../src/http";
 
 // Real HttpClient shape, but a PLAIN object (not vi.fn) — the push path never
 // calls it; it only satisfies the constructor.
-const client: HttpClient = {
+// Cast: never invoked (the push path doesn't touch HTTP), so it only needs to
+// satisfy the constructor. A plain literal can't match HttpClient's generic
+// method signatures, and esbuild strips the cast — the emitted JS is identical.
+const client = {
   get: async () => ({ data: {} }),
   post: async () => ({ data: {} }),
   put: async () => ({ data: {} }),
   delete: async () => ({ data: {} }),
-};
+} as unknown as HttpClient;
 
 class UserModel extends AsyncModel {
   static readonly id = "users";
