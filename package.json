@@ -66,7 +66,10 @@
     "lint:fix": "oxlint --fix src/ tests/",
     "format": "oxfmt src/ tests/",
     "format:check": "oxfmt --check src/ tests/",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "bench:build": "esbuild bench/harness/run-case.ts --bundle --format=esm --target=es2022 --platform=node --outfile=bench/.dist/run-case.mjs",
+    "bench": "pnpm bench:build && node bench/harness/gate.mjs",
+    "bench:update": "pnpm bench:build && node bench/harness/update-baseline.mjs"
   },
   "peerDependencies": {
     "vue": "^3.0.0"
@@ -77,6 +80,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
     "@size-limit/preset-small-lib": "^12.1.0",
+    "esbuild": "^0.24.0",
     "oxfmt": "^0.54.0",
     "oxlint": "^1.69.0",
     "size-limit": "^12.1.0",
