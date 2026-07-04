@@ -109,6 +109,55 @@ The `files` field in `package.json` controls what ends up in the published tarba
 
 `src/` is included so consumers can debug into source maps; the runtime entry is `dist/`.
 
+## Performance benchmarks
+
+kita has a runtime perf-regression gate (`.github/workflows/perf.yml`) built on
+deterministic **instruction counting** — no wall-clock timing, no third-party
+service. Each hot path is run at N and 2N iterations under `valgrind --tool=callgrind`
+with `node --predictable`; subtracting (`Δ = Ir(2N) − Ir(N)`) cancels Node startup
+and JIT warm-up, leaving a stable per-iteration instruction count. A committed
+`bench/baseline.json` is the comparison basis.
+
+### Running benchmarks locally
+
+You need valgrind. With sudo: `sudo apt-get install -y valgrind`. Without sudo
+(e.g. some WSL setups): `bash bench/harness/bootstrap-valgrind.sh` installs a
+rootless copy into `bench/.valgrind/`.
+
+- `pnpm bench` — build the harness, run every gate case, compare to the baseline,
+  print the table (exit 1 on a ≥3% regression).
+- `pnpm bench:update` — regenerate `bench/baseline.json` (do this only on the
+  pinned CI toolchain, or via the **perf-baseline** workflow, so numbers match CI).
+
+### Updating the baseline
+
+Instruction counts are deterministic for a fixed (node, valgrind) pair, so the
+baseline only changes when perf genuinely changes (or the toolchain is bumped).
+When a PR legitimately shifts a hot path, trigger the **perf-baseline** GitHub
+Actions workflow (`workflow_dispatch`); it regenerates the baseline on the pinned
+toolchain and opens a PR with the new numbers. Merge that alongside your change.
+
+### Writing a benchmark case
+
+Cases live in `bench/cases/*.bench.ts` (TypeScript, because they use kita's
+`@reactive accessor` decorators) and are AOT-bundled with esbuild — plain `node`
+can't parse decorators. A case exports `setup()` (build fixtures once) and
+`body(state)` (one hot operation). Rules that keep the differential valid:
+
+- **No unbounded growth.** Repeatedly calling `body` on the same state must not
+  grow a Map/array/registry — that breaks linearity. Use fresh-per-call objects
+  (discarded, GC'd) or push-then-remove. In particular, never push into the
+  shared `ModelStoreRegistry` singleton across iterations.
+- **Body-dominated.** The per-iteration cost must be dominated by the code under
+  test, not loop/call overhead — otherwise a real regression under-reports. If a
+  body is very cheap, make it do more work per call.
+- **Size it hot.** Tiny workloads are JIT-unstable; keep each case's total work
+  well above trivial. New cases must resolve an injected ~3% (see
+  `tests/bench-sensitivity.test.ts`) before you trust them.
+
+Register new cases in both `bench/cases/index.ts` (implementation) and
+`bench/harness/cases.mjs` (gate list + iteration count), then re-baseline.
+
 ## Branch and PR conventions
 
 - One feature per PR. Keep the diff reviewable.

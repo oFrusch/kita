@@ -14,6 +14,7 @@ export default [
     path: "dist/index.js",
     import: "*",
     ignore,
+    limit: "4.2 KB", // measured 3.74 KB + ~10%
   },
   {
     name: "ESM — quick-start import",
@@ -21,5 +22,6 @@ export default [
     import:
       "{ ApplicationStore, createAndRegisterStore, AsyncModel, AsyncStore, registerModel, reactive }",
     ignore,
+    limit: "3.7 KB", // measured 3.33 KB + ~10%
   },
 ];

@@ -1,0 +1,73 @@
+name: perf
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  runtime:
+    name: Runtime perf (Callgrind)
+    runs-on: ubuntu-24.04 # pinned: valgrind version must stay fixed (ubuntu-latest drifts)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Run perf gate
+        id: gate
+        # inform-first: surface regressions without blocking. To enforce, remove
+        # continue-on-error and add this job to required status checks.
+        continue-on-error: true
+        run: pnpm bench
+
+      - name: Comment results on PR
+        # Guard on the file existing: if the gate step CRASHES (e.g. a valgrind
+        # SIGILL), comment.md is never written; without this guard the comment
+        # step would fail with ENOENT and turn the inform-first job red.
+        if: github.event_name == 'pull_request' && hashFiles('bench/comment.md') != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: perf-runtime
+          path: bench/comment.md
+
+  size:
+    name: Bundle size
+    runs-on: ubuntu-24.04 # pinned for reproducible bundle measurement across runs
+    # size-limit-action is PR-oriented (reads the base branch for the delta + comment); skip on push.
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # size-limit-action needs the base branch for comparison
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check bundle size
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          package_manager: pnpm
+          build_script: build

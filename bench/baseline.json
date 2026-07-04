@@ -1,0 +1,15 @@
+{
+  "node": "v24.16.0",
+  "valgrind": "valgrind-3.26.0",
+  "cases": {
+    "reactive-construct": 3404463841,
+    "reactive-write": 143566751,
+    "store-bulk-push": 877302487,
+    "store-peek": 119230619,
+    "query-cache": 1499566822,
+    "request-dedupe": 520996913,
+    "pagination-loadmore": 571027492,
+    "optimistic-success": 66375345,
+    "optimistic-rollback": 1189144617
+  }
+}

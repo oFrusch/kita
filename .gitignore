@@ -27,3 +27,8 @@ docs/.vitepress/cache/
 .env
 .env.local
 *.local
+
+# bench harness artifacts
+bench/.dist/
+bench/.valgrind/
+bench/comment.md
