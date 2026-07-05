@@ -54,9 +54,10 @@ class FilterStore extends Store<FilterModel> {
 ## `AsyncStore`
 
 ```ts
-class AsyncStore<T extends AsyncModel> {
+class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpClient> {
   static readonly id: string;
-  constructor(client: HttpClient, args: { APIUrl?: string });
+  protected readonly client: TClient;
+  constructor(client: TClient, args: { APIUrl?: string });
 
   get records(): T[];
   set records(value: T[]);
@@ -166,10 +167,24 @@ users.invalidateQueries((p) => p.team === "eng");
 
 `_fetchAndCacheRecord`, the CRUD verbs, `modelType`, and `reset` are `protected` so subclasses can hook the fetch/mutation path. [`AsyncStoreSWR`](#asyncstoreswr) overrides `findRecord` and `_fetchAndCacheRecord`; the same pattern builds retry/throttle stores.
 
+### Typing the client
+
+`AsyncStore` takes an optional second type parameter, `TClient extends HttpClient = HttpClient`, giving `this.client` the real type of whatever client you inject instead of the minimal `HttpClient`:
+
+```ts
+import type { AxiosInstance } from "axios";
+
+class UserStore extends AsyncStore<UserModel, AxiosInstance> {}
+// this.client: AxiosInstance — res.data is axios-typed, and
+// axios-specific request options like `timeout` are available
+```
+
+It's optional and defaults to `HttpClient`, so existing `AsyncStore<T>` usage is unaffected. See [Custom HTTP client → Typing the client on your store](/cookbook/custom-http-client#typing-the-client-on-your-store) for the full walkthrough, including parameterizing `ApplicationStore` to keep registration typed end-to-end.
+
 ## `AsyncStoreSWR`
 
 ```ts
-class AsyncStoreSWR<T extends AsyncModel> extends AsyncStore<T> {
+class AsyncStoreSWR<T extends AsyncModel, TClient extends HttpClient = HttpClient> extends AsyncStore<T, TClient> {
   isRecordStale(id: string, staleTime: number): boolean;
   invalidateRecord(id: string): void;
   findRecord(id: string, params?: Record<string, unknown>, options?: FindRecordOptions | boolean): Promise<T | undefined>;

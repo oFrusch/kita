@@ -1,3 +1,4 @@
+import type { HttpClient } from "../http";
 import type { AsyncModel } from "../models";
 import { AsyncStore } from "../stores";
 
@@ -32,7 +33,10 @@ export interface FindRecordOptions {
  * await users.findRecord("u-1", {}, { staleTime: 30_000 });
  * ```
  */
-export class AsyncStoreSWR<T extends AsyncModel> extends AsyncStore<T> {
+export class AsyncStoreSWR<
+  T extends AsyncModel,
+  TClient extends HttpClient = HttpClient,
+> extends AsyncStore<T, TClient> {
   protected recordTimestamps = new Map<string, number>();
 
   protected reset() {

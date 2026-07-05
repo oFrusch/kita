@@ -15,13 +15,13 @@ export const KITA_STORE_KEY: InjectionKey<ApplicationStore> = Symbol(
   "@ofrusch/kita/application-store",
 );
 
-export class ApplicationStore {
-  declare client: HttpClient;
+export class ApplicationStore<TClient extends HttpClient = HttpClient> {
+  declare client: TClient;
 
   // accept any store definitions
   [key: string]: any;
 
-  constructor(client: HttpClient) {
+  constructor(client: TClient) {
     this.client = client;
   }
 
@@ -48,23 +48,27 @@ export class ApplicationStore {
   }
 }
 
-export function createStore<T extends typeof ApplicationStore>(
+export function createStore<T extends new (client: never) => ApplicationStore<HttpClient>>(
   appStoreClass: T,
-  client: HttpClient,
+  client: ConstructorParameters<T>[0],
 ): { appStore: InstanceType<T>; useStore: () => InstanceType<T> } {
   const useStore = () => {
     return inject(KITA_STORE_KEY) as InstanceType<T>;
   };
 
-  const appStore = new appStoreClass(client) as InstanceType<T>;
+  // `client` is the class's own declared type; `never` is only the constraint's lower
+  // bound, so bridge the two here (the runtime value is unaffected).
+  const appStore = new appStoreClass(client as never) as InstanceType<T>;
 
   return { appStore, useStore };
 }
 
-export function createAndRegisterStore<T extends typeof ApplicationStore>(
+export function createAndRegisterStore<
+  T extends new (client: never) => ApplicationStore<HttpClient>,
+>(
   appStoreClass: T,
   modelStores: Array<typeof Store<Model> | typeof AsyncStore<AsyncModel>>,
-  client: HttpClient,
+  client: ConstructorParameters<T>[0],
 ): {
   appStore: InstanceType<T>;
   useStore: () => InstanceType<T>;
