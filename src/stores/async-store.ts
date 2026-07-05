@@ -19,19 +19,19 @@ interface ConstructorArgs {
   APIUrl?: string;
 }
 
-export class AsyncStore<T extends AsyncModel> {
+export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpClient> {
   static readonly id: string;
 
   protected readonly _records: Ref<T[]>;
   protected readonly _recordsById: Map<string, T>;
-  protected readonly client: HttpClient;
+  protected readonly client: TClient;
   protected page = 1;
   protected nextPage = 1;
   protected APIUrl: string;
   protected requestTracker = new RequestTracker();
   private queryCache = new QueryCache<T>();
 
-  constructor(client: HttpClient, args: ConstructorArgs) {
+  constructor(client: TClient, args: ConstructorArgs) {
     this._records = ref([]);
     this._recordsById = new Map();
     this.client = client;

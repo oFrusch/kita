@@ -5,9 +5,9 @@ The container for your domain stores, and the Vue plugin that wires everything i
 ## `ApplicationStore`
 
 ```ts
-class ApplicationStore {
-  client: HttpClient;
-  constructor(client: HttpClient);
+class ApplicationStore<TClient extends HttpClient = HttpClient> {
+  client: TClient;
+  constructor(client: TClient);
   registerStore<T extends typeof Store | typeof AsyncStore>(StoreClass: T): this;
   getStore<T = Store<Model> | AsyncStore<AsyncModel>>(recordType: string): T;
   install(app: App): void;
@@ -22,6 +22,8 @@ class AppStore extends ApplicationStore {
   declare readonly posts: PostStore;
 }
 ```
+
+`ApplicationStore` takes an optional `TClient extends HttpClient = HttpClient` type parameter. Parameterize it with your concrete client type (e.g. `ApplicationStore<AxiosInstance>`) to get that client's real type on `this.client`; it defaults to the minimal `HttpClient`, so unparameterized usage is unchanged. See [Custom HTTP client → Typing the client on your store](/cookbook/custom-http-client#typing-the-client-on-your-store).
 
 You rarely instantiate it directly — use [`createStore`](#createstore) or [`createAndRegisterStore`](#createandregisterstore).
 
@@ -65,7 +67,7 @@ function createStore<T extends typeof ApplicationStore>(
 ): { appStore: InstanceType<T>; useStore: () => InstanceType<T> };
 ```
 
-Creates an app store instance and a matching `useStore` inject helper, **without** registering any child stores. Use when you register stores yourself, or have none.
+Creates an app store instance and a matching `useStore` inject helper, **without** registering any child stores. Use when you register stores yourself, or have none. The required type of `client` is derived from `appStoreClass` — if you pass a `class AppStore extends ApplicationStore<AxiosInstance>`, `client` must be assignable to `AxiosInstance`.
 
 ```ts
 const { appStore, useStore } = createStore(AppStore, client);
@@ -84,7 +86,7 @@ function createAndRegisterStore<T extends typeof ApplicationStore>(
 ): { appStore: InstanceType<T>; useStore: () => InstanceType<T> };
 ```
 
-Like [`createStore`](#createstore), but also registers every store in `modelStores`. The common entry point:
+Like [`createStore`](#createstore), but also registers every store in `modelStores`. As with `createStore`, the required type of `client` is derived from `appStoreClass` (so `class AppStore extends ApplicationStore<AxiosInstance>` requires an axios-compatible client). The common entry point:
 
 ```ts
 const { appStore, useStore } = createAndRegisterStore(

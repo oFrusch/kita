@@ -35,6 +35,33 @@ client.interceptors.request.use((config) => {
 });
 ```
 
+## Typing the client on your store
+
+`AsyncStore` and `ApplicationStore` take an optional second type parameter, `TClient extends HttpClient`, so `this.client` can carry the real type of whatever client you inject — instead of the minimal `HttpClient`, where `res.data` is `unknown`.
+
+At the store level, parameterize `AsyncStore` with your client's type:
+
+```ts
+import type { AxiosInstance } from "axios";
+
+class UserStore extends AsyncStore<UserModel, AxiosInstance> {}
+// this.client: AxiosInstance — res.data is axios-typed, and
+// axios-specific config like `timeout` is available on requests
+```
+
+To keep registration typed end-to-end, parameterize `ApplicationStore` the same way:
+
+```ts
+class AppStore extends ApplicationStore<AxiosInstance> {}
+
+createAndRegisterStore(AppStore, [UserStore], axios);
+// the client argument must be assignable to AxiosInstance
+```
+
+The payoff: axios-typed `res.data`, access to client-specific request options (`timeout`, etc.), and no more `declare protected client: AxiosInstance` workaround to get proper types inside the store.
+
+`TClient` is entirely optional and defaults to `HttpClient`, so this is fully backward-compatible — existing `AsyncStore<T>` and bare `class AppStore extends ApplicationStore {}` code keeps working unchanged, accepting any conforming client.
+
 ## ky
 
 ky returns the parsed body directly, so wrap it to produce `{ data }`:
