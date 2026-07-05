@@ -56,8 +56,6 @@ export function createStore<T extends new (client: never) => ApplicationStore<Ht
     return inject(KITA_STORE_KEY) as InstanceType<T>;
   };
 
-  // `client` is the class's own declared type; `never` is only the constraint's lower
-  // bound, so bridge the two here (the runtime value is unaffected).
   const appStore = new appStoreClass(client as never) as InstanceType<T>;
 
   return { appStore, useStore };
