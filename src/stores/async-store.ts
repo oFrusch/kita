@@ -157,7 +157,7 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
 
       // Cache the results (with meta, so a cache hit can return it too)
       if (cache) {
-        this.queryCache.set(params, newRecords, meta);
+        this.queryCache.set(params, newRecords, meta, cacheTTL);
       }
 
       return { records: newRecords, meta };

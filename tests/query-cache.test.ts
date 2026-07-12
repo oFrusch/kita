@@ -203,6 +203,163 @@ describe("QueryCache", () => {
     });
   });
 
+  describe("options constructor", () => {
+    it("should apply both ttl and maxSize", () => {
+      const cache = new QueryCache<string>({ ttl: 1000, maxSize: 2 });
+
+      cache.set({ page: 1 }, ["item1"]);
+      cache.set({ page: 2 }, ["item2"]);
+      cache.set({ page: 3 }, ["item3"]);
+
+      expect(cache.size).toBe(2);
+      expect(cache.get({ page: 1 })).toBeNull();
+
+      vi.advanceTimersByTime(1001);
+
+      expect(cache.get({ page: 3 })).toBeNull();
+    });
+
+    it("should keep the default ttl when only maxSize is specified", () => {
+      const cache = new QueryCache<string>({ maxSize: 1 });
+
+      cache.set({ page: 1 }, ["item1"]);
+      cache.set({ page: 2 }, ["item2"]);
+
+      expect(cache.size).toBe(1);
+      expect(cache.get({ page: 2 })).toEqual(["item2"]);
+
+      vi.advanceTimersByTime(60_001);
+
+      expect(cache.get({ page: 2 })).toBeNull();
+    });
+
+    it("should reject an invalid maxSize with a RangeError", () => {
+      expect(() => new QueryCache<string>({ maxSize: 0 })).toThrow(RangeError);
+      expect(() => new QueryCache<string>({ maxSize: -1 })).toThrow(RangeError);
+      expect(() => new QueryCache<string>({ maxSize: 1.5 })).toThrow(RangeError);
+      expect(() => new QueryCache<string>({ maxSize: NaN })).toThrow(RangeError);
+    });
+
+    it("should reject an invalid ttl with a RangeError", () => {
+      expect(() => new QueryCache<string>(0)).toThrow(RangeError);
+      expect(() => new QueryCache<string>(-1000)).toThrow(RangeError);
+      expect(() => new QueryCache<string>({ ttl: 1.5 })).toThrow(RangeError);
+      expect(() => new QueryCache<string>({ ttl: NaN })).toThrow(RangeError);
+    });
+  });
+
+  describe("bounded size", () => {
+    it("should sweep an expired entry that is never read when another key is written", () => {
+      const cache = new QueryCache<string>({ ttl: 1000 });
+      cache.set({ q: "stale" }, ["item1"]);
+
+      vi.advanceTimersByTime(1001);
+
+      cache.set({ q: "fresh" }, ["item2"]);
+
+      expect(cache.size).toBe(1);
+      expect(cache.get({ q: "fresh" })).toEqual(["item2"]);
+    });
+
+    it("should not sweep entries that are still fresh", () => {
+      const cache = new QueryCache<string>({ ttl: 1000 });
+      cache.set({ page: 1 }, ["item1"]);
+
+      vi.advanceTimersByTime(500);
+
+      cache.set({ page: 2 }, ["item2"]);
+
+      expect(cache.size).toBe(2);
+      expect(cache.get({ page: 1 })).toEqual(["item1"]);
+    });
+
+    it("should evict the oldest entry once maxSize is exceeded", () => {
+      const cache = new QueryCache<string>({ maxSize: 3 });
+      cache.set({ page: 1 }, ["item1"]);
+      cache.set({ page: 2 }, ["item2"]);
+      cache.set({ page: 3 }, ["item3"]);
+
+      cache.set({ page: 4 }, ["item4"]);
+
+      expect(cache.get({ page: 1 })).toBeNull();
+      expect(cache.get({ page: 2 })).toEqual(["item2"]);
+      expect(cache.get({ page: 3 })).toEqual(["item3"]);
+      expect(cache.get({ page: 4 })).toEqual(["item4"]);
+    });
+
+    it("should make a re-written key the newest entry", () => {
+      const cache = new QueryCache<string>({ maxSize: 2 });
+      cache.set({ page: 1 }, ["item1"]);
+      cache.set({ page: 2 }, ["item2"]);
+
+      cache.set({ page: 1 }, ["item1-updated"]);
+      cache.set({ page: 3 }, ["item3"]);
+
+      expect(cache.get({ page: 2 })).toBeNull();
+      expect(cache.get({ page: 1 })).toEqual(["item1-updated"]);
+      expect(cache.get({ page: 3 })).toEqual(["item3"]);
+    });
+
+    it("should never exceed maxSize across a long write loop", () => {
+      const cache = new QueryCache<string>({ maxSize: 5 });
+
+      Array.from({ length: 50 }, (_, index) => index).forEach((index) => {
+        cache.set({ q: `search-${index}` }, [`item${index}`]);
+        expect(cache.size).toBeLessThanOrEqual(5);
+      });
+
+      expect(cache.size).toBe(5);
+      expect(cache.get({ q: "search-49" })).toEqual(["item49"]);
+      expect(cache.get({ q: "search-44" })).toBeNull();
+    });
+
+    it("should default maxSize to 100", () => {
+      const cache = new QueryCache<string>();
+
+      Array.from({ length: 150 }, (_, index) => index).forEach((index) => {
+        cache.set({ q: `search-${index}` }, [`item${index}`]);
+      });
+
+      expect(cache.size).toBe(100);
+    });
+  });
+
+  describe("per-entry ttl", () => {
+    it("should not sweep a longer-lived entry when an unrelated key is written", () => {
+      const cache = new QueryCache<string>();
+
+      cache.set({ q: "a" }, ["a"], undefined, 300_000);
+
+      vi.advanceTimersByTime(70_000);
+      cache.set({ q: "b" }, ["b"]);
+
+      expect(cache.get({ q: "a" }, 300_000)).toEqual(["a"]);
+    });
+
+    it("should sweep a longer-lived entry once its own ttl elapses", () => {
+      const cache = new QueryCache<string>();
+
+      cache.set({ q: "a" }, ["a"], undefined, 300_000);
+
+      vi.advanceTimersByTime(300_001);
+      cache.set({ q: "b" }, ["b"]);
+
+      expect(cache.size).toBe(1);
+      expect(cache.get({ q: "a" }, 300_000)).toBeNull();
+    });
+
+    it("should sweep a shorter-lived entry before the cache default elapses", () => {
+      const cache = new QueryCache<string>();
+
+      cache.set({ q: "a" }, ["a"], undefined, 5_000);
+
+      vi.advanceTimersByTime(5_001);
+      cache.set({ q: "b" }, ["b"]);
+
+      expect(cache.size).toBe(1);
+    });
+  });
+
   describe("type safety", () => {
     it("should preserve array element type", () => {
       interface User {
