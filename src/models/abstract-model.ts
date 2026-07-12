@@ -5,6 +5,11 @@ export abstract class AbstractModel {
 
   declare readonly id: string;
 
+  /** `!this.id` — a record with no id has never been persisted. */
+  get isNew(): boolean {
+    return !this.id;
+  }
+
   toString() {
     return this.id;
   }
