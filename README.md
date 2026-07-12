@@ -250,6 +250,17 @@ cache.set({ q: "hello" }, results);
 cache.get({ q: "hello" });
 ```
 
+### `sortedSerialize`
+
+The stable serialization behind every params-derived key — `QueryCache` and `findRecord` / `findRecords` request dedup all use it, so the same query always produces the same key regardless of how the params object was built. Keys are sorted at every level of nesting; array order stays significant. Functions, symbols, and cycles throw a `TypeError` rather than silently colliding.
+
+```ts
+import { sortedSerialize } from "@ofrusch/kita";
+
+sortedSerialize({ page: 1, filter: { active: true, role: "admin" } }) ===
+  sortedSerialize({ filter: { role: "admin", active: true }, page: 1 }); // true
+```
+
 ### `PaginatedQuery`
 
 Page-tracking helper for infinite scroll:

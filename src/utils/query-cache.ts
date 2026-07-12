@@ -1,3 +1,5 @@
+import { sortedSerialize } from "./serialize";
+
 interface CacheEntry<T, M> {
   data: T;
   meta?: M;
@@ -18,15 +20,10 @@ export class QueryCache<T, M = Record<string, unknown>> {
 
   /**
    * Create a stable cache key from query parameters.
-   * Sorts keys to ensure consistent ordering.
+   * Sorts keys at every level of nesting to ensure consistent ordering.
    */
   private makeKey(params: Record<string, unknown>): string {
-    const sortedKeys = Object.keys(params).sort();
-    const sortedParams: Record<string, unknown> = {};
-    for (const key of sortedKeys) {
-      sortedParams[key] = params[key];
-    }
-    return JSON.stringify(sortedParams);
+    return sortedSerialize(params);
   }
 
   /**

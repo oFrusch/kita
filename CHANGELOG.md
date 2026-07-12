@@ -11,13 +11,17 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 - `AsyncStore.createPaginatedQuery` no longer routes through the record-only query cache, which dropped pagination `meta` on a cache hit and made `hasMore` collapse to `false` after a reset.
 - `PaginatedQuery` state (`hasMore` / `isLoading` / `page` / `totalCount` / `totalPages`) is now backed by Vue refs, so it stays reactive in components — fixes a stuck "loading" state when the query is held in a `ref`/`shallowRef`.
 - `AsyncStore.findRecords` now returns response `meta` on a cache hit, not just on the first fetch. The query cache previously stored records only, so a cached paginated query lost its `meta` (and `hasMore`/`totalCount` with it).
+- Every params-derived cache key now goes through one stable serialization, so the same query resolves to the same key. Request dedup used raw `JSON.stringify`, so `{ page, filter }` and `{ filter, page }` were two in-flight requests; `QueryCache` sorted only top-level keys, so a reordered _nested_ filter object was a cache miss.
 
 ### Added
+
+- `sortedSerialize(value)` — the stable serialization behind `QueryCache` keys and `findRecord` / `findRecords` request dedup. Sorts object keys at every level of nesting, keeps array order significant, and serializes `Date` (and anything else with a `toJSON`) by value.
 
 - `QueryCache` can now store response metadata alongside records: `set(params, data, meta?)` plus a new `getEntry(params, ttl?)` that returns `{ data, meta }`. `get()` is unchanged. The class gains an optional second type param (`QueryCache<T, M>`, `M` defaults to `Record<string, unknown>`).
 
 ### Changed
 
+- **Potentially breaking:** query params containing a function, a symbol, or a cycle now throw a `TypeError` from `QueryCache.get`/`set`/`has` and `AsyncStore.findRecord`/`findRecords`. `JSON.stringify` used to drop them silently, so `{ onSelect: () => {} }` keyed as `{}` and collided with every other callback. Params reaching the wire cannot contain these values anyway; strip them before the call.
 - Internal refactor: `src/stores/index.ts` and `src/models/index.ts` split into per-class modules (`abstract-store.ts`/`store.ts`/`async-store.ts` and `abstract-model.ts`/`model.ts`/`async-model.ts`). The barrel re-exports are unchanged, so this is invisible to consumers.
 - `@vue/devtools-api` is now lazy-loaded via a dynamic `import()` behind a `process.env.NODE_ENV !== "production"` guard, so production consumer bundles tree-shake it out entirely.
 

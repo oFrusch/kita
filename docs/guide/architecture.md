@@ -72,7 +72,7 @@ findRecord("p-1")                                   AsyncStore
 Three subsystems collaborate per request:
 
 1. **`_recordsById` Map** — the local cache. Lookups are O(1). Records are merged in-place via `Object.assign` so existing Vue refs holding the record keep pointing at the same object.
-2. **`RequestTracker`** — dedup. Keyed by `"findRecord:<id>:<JSON.stringify(params)>"`. The promise gets dropped from the map when it settles.
+2. **`RequestTracker`** — dedup. Keyed by `"findRecord:<id>:<sortedSerialize(params)>"`, via [`sortedSerialize`](/api/utilities#sortedserialize), so params that differ only in key order share one in-flight request. The promise gets dropped from the map when it settles.
 3. **`QueryCache`** — TTL'd response cache for `findRecords` (not `findRecord`). Auto-invalidated whenever `_createRecord` / `_updateRecord` / `_deleteRecord` succeeds.
 
 ## Why the registry is a module-level singleton

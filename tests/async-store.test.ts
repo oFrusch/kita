@@ -104,6 +104,28 @@ describe("AsyncStore", () => {
       await store.findRecord("1", { include: "posts" });
       expect(client.get).toHaveBeenCalledWith("/users/1/", { params: { include: "posts" } });
     });
+
+    it("deduplicates concurrent fetches whose params differ only in nested key order", async () => {
+      let resolve!: (v: unknown) => void;
+      client.get.mockReturnValue(
+        new Promise((r) => {
+          resolve = r;
+        }),
+      );
+
+      const p1 = store.findRecord("1", {
+        include: "posts",
+        filter: { active: true, role: "admin" },
+      });
+      const p2 = store.findRecord("1", {
+        filter: { role: "admin", active: true },
+        include: "posts",
+      });
+      resolve(mockResponse({ id: "1", email: "x" }));
+      await Promise.all([p1, p2]);
+
+      expect(client.get).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("findRecords", () => {
@@ -135,6 +157,40 @@ describe("AsyncStore", () => {
       client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
       await store.findRecords({ q: "x" });
       await store.findRecords({ q: "x" });
+      expect(client.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("deduplicates concurrent calls whose params differ only in nested key order", async () => {
+      let resolve!: (v: unknown) => void;
+      client.get.mockReturnValue(
+        new Promise((r) => {
+          resolve = r;
+        }),
+      );
+
+      const p1 = store.findRecords({ page: 1, filter: { active: true, role: "admin" } });
+      const p2 = store.findRecords({ filter: { role: "admin", active: true }, page: 1 });
+      resolve(mockResponse([{ id: "1", email: "a" }]));
+      await Promise.all([p1, p2]);
+
+      expect(client.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("serves a cache hit when params differ only in nested key order", async () => {
+      client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
+
+      await store.findRecords({ page: 1, filter: { active: true, role: "admin" } });
+      await store.findRecords({ filter: { role: "admin", active: true }, page: 1 });
+
+      expect(client.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("serves a cache hit when an optional param is explicitly undefined", async () => {
+      client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
+
+      await store.findRecords({ page: 1, search: undefined });
+      await store.findRecords({ page: 1 });
+
       expect(client.get).toHaveBeenCalledTimes(1);
     });
 

@@ -60,6 +60,29 @@ cache.getEntry({ page: 2 }); // { data: results, meta: { page: 2, hasMore: true 
 
 `AsyncStore.findRecords` uses this internally and auto-invalidates on any create/update/delete. Call [`store.invalidateQueries()`](/api/stores#invalidatequeries) after a custom mutation.
 
+## `sortedSerialize`
+
+```ts
+function sortedSerialize(value: unknown): string;
+```
+
+The stable serialization behind every params-derived key — `QueryCache` entries and `findRecord` / `findRecords` request dedup all go through it, so the same query always resolves to the same key.
+
+Object keys are sorted at every level of nesting; array order is preserved, since it is significant. `Date` (and anything else with a `toJSON`) serializes through it, and the result is sorted too.
+
+An object key whose value is `undefined` is omitted, matching what an HTTP client puts on the wire — `{ page }` and `{ page, filter: undefined }` issue the same request, so they share one key. Inside an array, where position is significant, `undefined` keeps its slot and stays distinct from `null`.
+
+```ts
+import { sortedSerialize } from "@ofrusch/kita";
+
+const a = sortedSerialize({ page: 1, filter: { active: true, role: "admin" } });
+const b = sortedSerialize({ filter: { role: "admin", active: true }, page: 1 });
+
+a === b; // true — one cache entry, one in-flight request
+```
+
+Values that cannot be keyed stably throw a `TypeError` rather than silently colliding: functions, symbols, and circular structures.
+
 ## `PaginatedQuery`
 
 ```ts
