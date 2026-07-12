@@ -82,6 +82,7 @@ class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpClient> 
 
   // protected — override points for subclasses
   protected _fetchAndCacheRecord(id: string, params: Record<string, unknown>): Promise<T>;
+  protected _postRecord(record: T, payload?: string): Promise<T>;
   protected _createRecord(record: T): Promise<T>;
   protected _updateRecord(record: T): Promise<T>;
   protected _deleteRecord(record: T): Promise<void>;
@@ -148,7 +149,7 @@ The HTTP verbs underneath (`_createRecord`, `_updateRecord`, `_deleteRecord`) ar
 
 ### `optimisticCreate` / `optimisticUpdate` / `optimisticDelete`
 
-Mutate the local store immediately and reconcile with the server, rolling back on failure. See [Optimistic updates](/cookbook/optimistic-updates).
+Mutate the local store immediately and reconcile with the server, rolling back on failure. `optimisticCreate` inserts the record instance itself under a temporary id — model methods keep working on the pending record — and swaps the lookup key to the server id once the POST lands. See [Optimistic updates](/cookbook/optimistic-updates).
 
 ### `createPaginatedQuery`
 
@@ -165,7 +166,11 @@ users.invalidateQueries((p) => p.team === "eng");
 
 ### Override points
 
-`_fetchAndCacheRecord`, the CRUD verbs, `modelType`, and `reset` are `protected` so subclasses can hook the fetch/mutation path. [`AsyncStoreSWR`](#asyncstoreswr) overrides `findRecord` and `_fetchAndCacheRecord`; the same pattern builds retry/throttle stores.
+`_fetchAndCacheRecord`, `_postRecord`, the CRUD verbs, `modelType`, and `reset` are `protected` so subclasses can hook the fetch/mutation path. [`AsyncStoreSWR`](#asyncstoreswr) overrides `findRecord` and `_fetchAndCacheRecord`; the same pattern builds retry/throttle stores. `_postRecord` is the bare POST-and-merge shared by `_createRecord` and `optimisticCreate`, so overriding it covers both create paths.
+
+::: tip Breaking change (unreleased)
+`optimisticCreate` no longer calls `_createRecord` — it calls `_postRecord` directly and manages store membership itself. If you hooked the create path by overriding `_createRecord`, that override still runs for `save()` but is **skipped on the optimistic path**. Move the hook to `_postRecord` to cover both.
+:::
 
 ### Typing the client
 
