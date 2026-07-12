@@ -60,6 +60,10 @@ Removes the record from the store immediately, then DELETEs — restoring it at 
 await itemStore.optimisticDelete(item);
 ```
 
+The rollback puts back the *same model instance* you passed in, so any reference you still hold
+stays valid — `store.peekRecord(item.id) === item`, and its model methods (`save`, `delete`) still
+work. If the array shrank while the DELETE was in flight, the record is appended instead.
+
 ## When to reach for which
 
 - **Single field on an arbitrary object** (a counter, a toggle) → `withOptimisticUpdate`.

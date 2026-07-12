@@ -1,3 +1,4 @@
+import { toRaw } from "vue";
 import { beforeEach, describe, expect, it } from "vitest";
 import registry from "../src/model-store-registry";
 import { AsyncModel, registerModel } from "../src/models";
@@ -292,12 +293,97 @@ describe("AsyncStore", () => {
       expect(m.email).toBe("old");
     });
 
-    it("optimisticDelete removes immediately and restores on error", async () => {
+    it("optimisticDelete removes the record on success", async () => {
+      const m = UserModel.create({ id: "1", email: "x" });
+      client.delete.mockResolvedValue(mockResponse({}));
+
+      await store.optimisticDelete(m);
+
+      expect(store.peekRecord("1")).toBeUndefined();
+      expect(store.records.map((r) => r.id)).toEqual([]);
+    });
+
+    it("optimisticDelete restores the original model instance on error", async () => {
       const m = UserModel.create({ id: "1", email: "x" });
       client.delete.mockRejectedValue(new Error("denied"));
 
       await expect(store.optimisticDelete(m)).rejects.toThrow("denied");
-      expect(store.peekRecord("1")).toBeDefined();
+
+      const restored = store.peekRecord("1");
+
+      expect(restored).toBe(m);
+      expect(restored).toBeInstanceOf(UserModel);
+      expect(typeof restored?.save).toBe("function");
+    });
+
+    it("optimisticDelete restores the record at its original position", async () => {
+      UserModel.create({ id: "1", email: "a" });
+      const middle = UserModel.create({ id: "2", email: "b" });
+      UserModel.create({ id: "3", email: "c" });
+      client.delete.mockRejectedValue(new Error("denied"));
+
+      await expect(store.optimisticDelete(middle)).rejects.toThrow("denied");
+
+      expect(store.records.map((r) => r.id)).toEqual(["1", "2", "3"]);
+      // `records` is a Vue ref, so entries read back as reactive proxies of the model.
+      expect(toRaw(store.records[1])).toBe(middle);
+    });
+
+    it("optimisticDelete restores the position after the array was already rebuilt", async () => {
+      UserModel.create({ id: "1", email: "a" });
+      const middle = UserModel.create({ id: "2", email: "b" });
+      UserModel.create({ id: "3", email: "c" });
+      const doomed = UserModel.create({ id: "4", email: "d" });
+
+      store._removeRecord(doomed);
+
+      client.delete.mockRejectedValue(new Error("denied"));
+
+      await expect(store.optimisticDelete(middle)).rejects.toThrow("denied");
+
+      expect(store.records.map((r) => r.id)).toEqual(["1", "2", "3"]);
+      expect(toRaw(store.records[1])).toBe(middle);
+    });
+
+    it("optimisticDelete appends a record that was never in the array", async () => {
+      UserModel.create({ id: "1", email: "a" });
+      UserModel.create({ id: "2", email: "b" });
+
+      const absent = new UserModel({ id: "9", email: "z" });
+      client.delete.mockRejectedValue(new Error("denied"));
+
+      await expect(store.optimisticDelete(absent)).rejects.toThrow("denied");
+
+      expect(store.records.map((r) => r.id)).toEqual(["1", "2", "9"]);
+      expect(store.peekRecord("9")).toBe(absent);
+    });
+
+    it("optimisticDelete appends the record when the array shrank mid-flight", async () => {
+      const first = UserModel.create({ id: "1", email: "a" });
+      const middle = UserModel.create({ id: "2", email: "b" });
+      const last = UserModel.create({ id: "3", email: "c" });
+
+      let rejectDelete = (_error: Error) => {};
+      client.delete.mockReturnValue(
+        new Promise((_resolve, reject) => {
+          rejectDelete = reject;
+        }),
+      );
+
+      const pending = store.optimisticDelete(middle);
+
+      expect(store.records.map((r) => r.id)).toEqual(["1", "3"]);
+
+      store._removeRecord(first);
+      store._removeRecord(last);
+
+      rejectDelete(new Error("denied"));
+
+      await expect(pending).rejects.toThrow("denied");
+
+      expect(store.records.map((r) => r.id)).toEqual(["2"]);
+      expect(toRaw(store.records[0])).toBe(middle);
+      expect(store.peekRecord("2")).toBe(middle);
     });
 
     it("optimisticCreate adds a temp record and replaces on success", async () => {
