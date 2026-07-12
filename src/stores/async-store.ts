@@ -6,6 +6,7 @@ import { withOptimisticUpdate } from "../utils/optimistic";
 import { PaginatedQuery, type PaginatedResult } from "../utils/pagination";
 import { QueryCache } from "../utils/query-cache";
 import { RequestTracker } from "../utils/request-tracker";
+import { sortedSerialize } from "../utils/serialize";
 import type { FindRecordsOptions } from "./abstract-store";
 
 const underscore = (s: string) => {
@@ -99,7 +100,7 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
    * Exposed as `protected` so SWR/custom subclasses can hook into the fetch path.
    */
   protected async _fetchAndCacheRecord(id: string, params: Record<string, unknown>): Promise<T> {
-    const cacheKey = `findRecord:${id}:${JSON.stringify(params)}`;
+    const cacheKey = `findRecord:${id}:${sortedSerialize(params)}`;
 
     return this.requestTracker.dedupe(cacheKey, async () => {
       const res = await this.client.get<any>(`/${this.APIUrl}/${id}/`, { params });
@@ -140,7 +141,7 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
       }
     }
 
-    const cacheKey = `findRecords:${JSON.stringify(params)}:${replaceStore}`;
+    const cacheKey = `findRecords:${sortedSerialize(params)}:${replaceStore}`;
 
     return this.requestTracker.dedupe(cacheKey, async () => {
       const res = await this.client.get<any>(`/${this.APIUrl}/`, { params });

@@ -203,6 +203,46 @@ describe("QueryCache", () => {
     });
   });
 
+  describe("stable keys", () => {
+    it("should hit when params differ only in top-level key order", () => {
+      const cache = new QueryCache<string>();
+      const data = ["item1"];
+
+      cache.set({ page: 1, limit: 50 }, data);
+
+      expect(cache.get({ limit: 50, page: 1 })).toEqual(data);
+      expect(cache.size).toBe(1);
+    });
+
+    it("should hit when params differ only in nested key order", () => {
+      const cache = new QueryCache<string>();
+      const data = ["item1"];
+
+      cache.set({ page: 1, filter: { active: true, role: "admin" } }, data);
+
+      expect(cache.get({ filter: { role: "admin", active: true }, page: 1 })).toEqual(data);
+    });
+
+    it("should not merge two entries whose nested params actually differ", () => {
+      const cache = new QueryCache<string>();
+
+      cache.set({ filter: { role: "admin" } }, ["admin"]);
+      cache.set({ filter: { role: "guest" } }, ["guest"]);
+
+      expect(cache.size).toBe(2);
+      expect(cache.get({ filter: { role: "admin" } })).toEqual(["admin"]);
+    });
+
+    it("should not merge two entries whose array params differ only in order", () => {
+      const cache = new QueryCache<string>();
+
+      cache.set({ tags: ["a", "b"] }, ["first"]);
+      cache.set({ tags: ["b", "a"] }, ["second"]);
+
+      expect(cache.size).toBe(2);
+    });
+  });
+
   describe("type safety", () => {
     it("should preserve array element type", () => {
       interface User {
