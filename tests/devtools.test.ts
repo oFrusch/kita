@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationStore, createAndRegisterStore } from "../src/application-store";
 import setupDevtools from "../src/devtools/setup-plugin";
 import { AsyncModel, Model, registerModel } from "../src/models";
@@ -242,6 +242,89 @@ describe("devtools plugin", () => {
       expect(users.children).toEqual([]);
 
       vi.useRealTimers();
+    });
+  });
+
+  describe("on demand, not on a timer", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("registers no polling interval", async () => {
+      const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+
+      await setupWithFakeDevtools(appStore);
+
+      expect(setIntervalSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not push the tree while the stores are unchanged", async () => {
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+      const devtools = await setupWithFakeDevtools(appStore);
+
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      expect(devtools.sendInspectorTree).not.toHaveBeenCalled();
+    });
+
+    it("pushes the tree when a record is added", async () => {
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+      const devtools = await setupWithFakeDevtools(appStore);
+
+      appStore.users._pushRecord(new UserModel({ id: "u1" }));
+      await vi.advanceTimersByTimeAsync(50);
+
+      expect(devtools.sendInspectorTree).toHaveBeenCalledWith(INSPECTOR_ID);
+    });
+
+    it("pushes the tree when a store's records are replaced", async () => {
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+      appStore.users._pushRecord(new UserModel({ id: "u1" }));
+
+      const devtools = await setupWithFakeDevtools(appStore);
+      appStore.users.records = [];
+      await vi.advanceTimersByTimeAsync(50);
+
+      expect(devtools.sendInspectorTree).toHaveBeenCalledWith(INSPECTOR_ID);
+    });
+
+    it("builds a tree containing records added after setup", async () => {
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+      const devtools = await setupWithFakeDevtools(appStore);
+
+      appStore.users._pushRecord(new UserModel({ id: "u1" }));
+
+      const [users] = devtools.requestTree();
+
+      expect(users.label).toBe("Users (1)");
+      expect(users.children.map((child) => child.id)).toEqual(["u1"]);
+    });
+
+    it("finds the state of a record added after setup", async () => {
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+      const devtools = await setupWithFakeDevtools(appStore);
+
+      appStore.users._pushRecord(new UserModel({ id: "u2" }));
+
+      const state = devtools.requestState("u2");
+
+      expect(state.Record).toContainEqual({ key: "id", value: "u2", editable: false });
+    });
+
+    it("still pushes the tree when a filter action is toggled", async () => {
+      const { appStore } = createAndRegisterStore(AppStore, [UserStore], client);
+      const devtools = await setupWithFakeDevtools(appStore);
+
+      devtools.actions().forEach((action) => action.action());
+      await vi.advanceTimersByTimeAsync(50);
+
+      expect(devtools.sendInspectorTree).toHaveBeenCalledWith(INSPECTOR_ID);
+      expect(devtools.actions()).toHaveLength(2);
     });
   });
 });
