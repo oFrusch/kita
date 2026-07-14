@@ -82,6 +82,7 @@ class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpClient> 
 
   // protected — override points for subclasses
   protected _fetchAndCacheRecord(id: string, params: Record<string, unknown>): Promise<T>;
+  protected _postRecord(record: T, payload?: string): Promise<T>;
   protected _createRecord(record: T): Promise<T>;
   protected _updateRecord(record: T): Promise<T>;
   protected _deleteRecord(record: T): Promise<void>;
@@ -148,7 +149,7 @@ The HTTP verbs underneath (`_createRecord`, `_updateRecord`, `_deleteRecord`) ar
 
 ### `optimisticCreate` / `optimisticUpdate` / `optimisticDelete`
 
-Mutate the local store immediately and reconcile with the server, rolling back on failure. See [Optimistic updates](/cookbook/optimistic-updates).
+Mutate the local store immediately and reconcile with the server, rolling back on failure. `optimisticCreate` inserts the record instance itself under a temporary id — model methods keep working on the pending record — and swaps the lookup key to the server id once the POST lands. See [Optimistic updates](/cookbook/optimistic-updates).
 
 ### `createPaginatedQuery`
 
@@ -165,7 +166,11 @@ users.invalidateQueries((p) => p.team === "eng");
 
 ### Override points
 
-`_fetchAndCacheRecord`, the CRUD verbs, `modelType`, and `reset` are `protected` so subclasses can hook the fetch/mutation path. [`AsyncStoreSWR`](#asyncstoreswr) overrides `findRecord` and `_fetchAndCacheRecord`; the same pattern builds retry/throttle stores.
+`_fetchAndCacheRecord`, `_postRecord`, the CRUD verbs, `modelType`, and `reset` are `protected` so subclasses can hook the fetch/mutation path. [`AsyncStoreSWR`](#asyncstoreswr) overrides `findRecord` and `_fetchAndCacheRecord`; the same pattern builds retry/throttle stores. `_postRecord` is the bare POST-and-merge shared by `_createRecord` and `optimisticCreate`, so overriding it covers both create paths.
+
+::: tip Breaking change (unreleased)
+`optimisticCreate` no longer calls `_createRecord` — it calls `_postRecord` directly and manages store membership itself. If you hooked the create path by overriding `_createRecord`, that override still runs for `save()` but is **skipped on the optimistic path**. Move the hook to `_postRecord` to cover both.
+:::
 
 ### Typing the client
 
@@ -188,6 +193,7 @@ class AsyncStoreSWR<T extends AsyncModel, TClient extends HttpClient = HttpClien
   isRecordStale(id: string, staleTime: number): boolean;
   invalidateRecord(id: string): void;
   findRecord(id: string, params?: Record<string, unknown>, options?: FindRecordOptions | boolean): Promise<T | undefined>;
+  protected onRevalidationError(error: unknown, id: string): void;
 }
 ```
 
@@ -201,6 +207,28 @@ class UserStore extends AsyncStoreSWR<UserModel> {
 await users.findRecord("u-1", {}, { staleTime: 30_000 });
 users.invalidateRecord("u-1"); // next findRecord refetches
 ```
+
+### `onRevalidationError`
+
+```ts
+protected onRevalidationError(error: unknown, id: string): void
+```
+
+Called when a *background* revalidation rejects. The default implementation is a no-op — under SWR a failed refresh is non-fatal, so the caller keeps the stale record, the freshness timestamp is left untouched, and the next `findRecord` retries. Overriding it is how you report the failure:
+
+```ts
+class UserStore extends AsyncStoreSWR<UserModel> {
+  static readonly id = "users";
+
+  protected onRevalidationError(error: unknown, id: string) {
+    Sentry.captureException(error, { tags: { store: "users", recordId: id } });
+  }
+}
+```
+
+It never fires on the awaited path (no cached record) — that rejection propagates to the caller.
+
+It fires once per background revalidation, not once per caller: concurrent `findRecord` calls for the same record share a single refresh, so one failed request reports once. An error thrown by your override is swallowed — a failing reporter must not become the unhandled rejection this hook exists to prevent.
 
 Full walkthrough: [Stale-while-revalidate](/cookbook/swr).
 

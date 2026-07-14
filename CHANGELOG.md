@@ -4,20 +4,36 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ## Unreleased
 
+### Breaking Changes
+
+- `AsyncStore.optimisticCreate` no longer routes through `_createRecord`; it now calls the new `_postRecord` hook directly and manages store membership itself. Subclasses that hooked the create path by overriding `protected _createRecord` will find that override **silently skipped on the optimistic path** (it still runs for `save()` / `model.save()`). Move such hooks to `_postRecord`, which is shared by both create paths.
+- `AsyncStore.optimisticCreate` now throws if the store already holds the instance under its current id. Previously it POSTed a duplicate row to the server and pushed the instance into `records` twice. Use `save()` to re-persist an existing record.
+
 ### Fixed
 
+- `AsyncStore.optimisticCreate` now puts the **record instance** in the store while the POST is in flight, instead of a plain-object spread clone. The pending record keeps its prototype, so `record instanceof Model` holds and model methods survive. It also stays in `records` for the whole round-trip (no remove-and-re-add flicker, no duplicate entry), with only its `_recordsById` key swapped from the temporary id to the server id. Note the pending record carries the temporary id, so it is **not** `isNew` mid-flight — do not call `save()` / `delete()` on it until the create settles.
+- `AsyncStore.optimisticCreate` temporary ids come from a per-store counter rather than `Date.now()`, which collided for two creates in the same millisecond and merged the second record into the first.
+- `AsyncStore.optimisticCreate` deduplicates re-entrant calls for the same instance (a double-submitted form): the second call joins the in-flight request instead of issuing a second POST that would carry the temporary id in its body and push the instance into `records` twice.
+- `AsyncStore.optimisticCreate` reconciles against an existing record when the server returns an id already held in the store (a concurrent `findRecords`, or an upsert endpoint echoing an existing row): it merges into the incumbent instead of leaving two array entries under one id.
+- `AsyncStore._postRecord` merges the server response through the record's reactive proxy. `records` stores raw targets, so assigning straight onto the instance bypassed the set trap and an optimistic create never re-rendered — the row stayed on its `temp_*` id until some unrelated mutation forced a redraw.
 - `AsyncModel.create(...)` no longer eagerly registers an id-less draft in its store (it was stored under an `undefined` key). Combined with the fix below, `Model.create({...}); await model.save()` now leaves exactly one record in the store.
 - `AsyncStore._createRecord` now merges the server response onto the saved record and stores that model instance, instead of pushing the raw response JSON as a second, non-model record. Fixes duplicate records after a create+save.
 - `AsyncStore.createPaginatedQuery` no longer routes through the record-only query cache, which dropped pagination `meta` on a cache hit and made `hasMore` collapse to `false` after a reset.
 - `PaginatedQuery` state (`hasMore` / `isLoading` / `page` / `totalCount` / `totalPages`) is now backed by Vue refs, so it stays reactive in components — fixes a stuck "loading" state when the query is held in a `ref`/`shallowRef`.
 - `AsyncStore.findRecords` now returns response `meta` on a cache hit, not just on the first fetch. The query cache previously stored records only, so a cached paginated query lost its `meta` (and `hasMore`/`totalCount` with it).
+- `QueryCache` no longer grows without bound. Expiry was lazy and per-key — an entry was only dropped when that exact key was read again — so a key written once and never re-read lived for the life of the page. Every `set` now sweeps expired entries and evicts the oldest once the cache is over `maxSize` (default 100).
 
 ### Added
 
+- `AsyncStore._postRecord(record, payload?)` — a new `protected` override point carrying the bare POST-and-merge, split out of `_createRecord` and shared with `optimisticCreate`. Overriding it hooks both create paths at once.
 - `QueryCache` can now store response metadata alongside records: `set(params, data, meta?)` plus a new `getEntry(params, ttl?)` that returns `{ data, meta }`. `get()` is unchanged. The class gains an optional second type param (`QueryCache<T, M>`, `M` defaults to `Record<string, unknown>`).
+- `QueryCacheOptions` (`{ ttl?, maxSize? }`) is now public, and `new QueryCache({ ttl, maxSize })` configures both. The `new QueryCache(30_000)` numeric-TTL form still works.
+- `set(params, data, meta?, ttl?)` takes an optional per-entry TTL. The expiry sweep honours each entry's own lifetime, so an entry written with a longer TTL survives writes to unrelated keys — this is what makes `AsyncStore.findRecords`' `cacheTTL` option hold beyond the cache's 60s default.
 
 ### Changed
 
+- **Potentially breaking:** `QueryCache`'s `ttl` and `maxSize` must each be a positive integer. Values that were silently accepted before — `new QueryCache(0)`, a negative or fractional TTL — now throw a `RangeError` at construction rather than producing a cache that never stores anything.
+- **Potentially breaking:** `AsyncStore`'s internal query cache is now bounded to 100 entries (previously unbounded). A store that caches more than 100 distinct param sets will now evict the oldest; raise it by passing `maxSize` to a `QueryCache` you own.
 - Internal refactor: `src/stores/index.ts` and `src/models/index.ts` split into per-class modules (`abstract-store.ts`/`store.ts`/`async-store.ts` and `abstract-model.ts`/`model.ts`/`async-model.ts`). The barrel re-exports are unchanged, so this is invisible to consumers.
 - `@vue/devtools-api` is now lazy-loaded via a dynamic `import()` behind a `process.env.NODE_ENV !== "production"` guard, so production consumer bundles tree-shake it out entirely.
 

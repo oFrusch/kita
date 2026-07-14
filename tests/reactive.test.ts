@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { effect, watch } from "vue";
+
 import reactive from "../src/decorators/reactive";
 
 describe("@reactive decorator", () => {

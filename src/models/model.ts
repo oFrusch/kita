@@ -4,10 +4,6 @@ import { AbstractModel } from "./abstract-model";
 export class Model extends AbstractModel {
   declare store: Store<this>;
 
-  get isNew(): boolean {
-    return !this.id;
-  }
-
   static create<T extends Model, U>(
     this: new (params: Record<string, unknown>) => T,
     params?: U,

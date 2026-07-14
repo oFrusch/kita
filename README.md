@@ -240,14 +240,18 @@ const user = await tracker.dedupe(`user-${id}`, () => api.get(`/users/${id}`));
 
 ### `QueryCache`
 
-TTL-based cache for list queries. `AsyncStore.findRecords` uses this internally and auto-invalidates on `_createRecord` / `_updateRecord` / `_deleteRecord`. Call `store.invalidateQueries()` after any custom mutation that changes the set of records.
+Bounded, TTL-based cache for list queries. `AsyncStore.findRecords` uses this internally and auto-invalidates on `_createRecord` / `_updateRecord` / `_deleteRecord`. Call `store.invalidateQueries()` after any custom mutation that changes the set of records.
 
 ```ts
 import { QueryCache } from "@ofrusch/kita";
 
-const cache = new QueryCache<Item>(60_000); // 1 minute TTL
+const cache = new QueryCache<Item>(60_000); // 1 minute TTL, default max size
 cache.set({ q: "hello" }, results);
 cache.get({ q: "hello" });
+
+// Or bound it explicitly — every `set` sweeps expired entries, then evicts the
+// oldest ones until `size <= maxSize`. FIFO, not LRU: `get` doesn't refresh recency.
+const bounded = new QueryCache<Item>({ ttl: 30_000, maxSize: 250 });
 ```
 
 ### `PaginatedQuery`
@@ -314,7 +318,7 @@ The base `AsyncStore` has a smaller surface and simpler typing — pick `AsyncSt
 | Export                 | Purpose                              |
 | ---------------------- | ------------------------------------ |
 | `RequestTracker`       | Concurrent-request deduplication     |
-| `QueryCache`           | TTL-based query cache                |
+| `QueryCache`           | Bounded, TTL-based query cache       |
 | `PaginatedQuery`       | Page-tracking for `loadMore` UIs     |
 | `withOptimisticUpdate` | Optimistic update with auto-rollback |
 

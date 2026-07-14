@@ -1,4 +1,5 @@
 import { expectTypeOf, test } from "vitest";
+
 import { ApplicationStore, createStore } from "../src/application-store";
 import type { HttpClient } from "../src/http";
 import { AsyncModel } from "../src/models";

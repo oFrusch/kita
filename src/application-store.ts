@@ -1,5 +1,6 @@
 import type { App, InjectionKey } from "vue";
 import { inject } from "vue";
+
 import dataStorePlugin from "./devtools";
 import type { HttpClient } from "./http";
 import ModelStoreRegistry from "./model-store-registry";

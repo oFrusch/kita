@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { App } from "vue";
+
 import {
   ApplicationStore,
   createAndRegisterStore,

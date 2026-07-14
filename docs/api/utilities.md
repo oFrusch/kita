@@ -28,11 +28,17 @@ const user = await tracker.dedupe(`user-${id}`, () => api.get(`/users/${id}`));
 ## `QueryCache`
 
 ```ts
+interface QueryCacheOptions {
+  ttl?: number;     // default 60_000ms
+  maxSize?: number; // default 100 entries
+}
+
 class QueryCache<T, M = Record<string, unknown>> {
-  constructor(defaultTTL?: number); // default 60000ms
+  constructor(ttl?: number);
+  constructor(options?: QueryCacheOptions);
   get(params: Record<string, unknown>, ttl?: number): T[] | null;
   getEntry(params: Record<string, unknown>, ttl?: number): { data: T[]; meta?: M } | null;
-  set(params: Record<string, unknown>, data: T[], meta?: M): void;
+  set(params: Record<string, unknown>, data: T[], meta?: M, ttl?: number): void;
   has(params: Record<string, unknown>, ttl?: number): boolean;
   invalidate(predicate?: (params: Record<string, unknown>) => boolean): void;
   get size(): number;
@@ -40,15 +46,32 @@ class QueryCache<T, M = Record<string, unknown>> {
 }
 ```
 
-A TTL-based cache for list queries, keyed by a stable serialization of the params (key order doesn't matter). `get` returns `null` and evicts the entry once it's older than the TTL.
+A bounded, TTL-based cache for list queries, keyed by a stable serialization of the params (key order doesn't matter). `get` returns `null` and evicts the entry once it's older than the TTL.
 
 ```ts
 import { QueryCache } from "@ofrusch/kita";
 
-const cache = new QueryCache<Item>(60_000); // 1 minute
+const cache = new QueryCache<Item>(60_000); // 1 minute, default max size
 cache.set({ q: "hello" }, results);
 cache.get({ q: "hello" });        // results, or null if expired
 cache.invalidate((p) => p.q === "hello");
+```
+
+### Bounding the cache
+
+`get` only evicts the key you ask for, so an entry written once and never read again would live forever. Every `set` therefore sweeps expired entries first, then evicts from the oldest end until `size <= maxSize`. Without that bound, high-cardinality params — a search box caching per keystroke, per-user filters, pagination cursors — grow the cache forever in a long-lived SPA.
+
+```ts
+const cache = new QueryCache<Item>({ ttl: 30_000, maxSize: 250 });
+```
+
+Eviction is insertion-order (FIFO), **not LRU**: reading an entry does not refresh its recency, only re-writing it does. `ttl` and `maxSize` must each be a positive integer — anything else throws a `RangeError` at construction.
+
+The sweep honours each entry's own lifetime, not the cache-wide default. Pass a `ttl` to `set` to give one entry a longer (or shorter) life than its siblings, and it will survive writes to unrelated keys until that lifetime elapses — this is what backs the `cacheTTL` option on `AsyncStore.findRecords`:
+
+```ts
+const cache = new QueryCache<Item>(); // 60s default
+cache.set({ q: "hello" }, results, undefined, 300_000); // this entry lives 5 minutes
 ```
 
 Pass response metadata as the third `set` argument and read it back with `getEntry` — this is how `AsyncStore.findRecords` preserves pagination `meta` across a cache hit:

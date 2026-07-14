@@ -44,13 +44,21 @@ await itemStore.optimisticUpdate(item);
 
 ### `optimisticCreate`
 
-Inserts the record under a temporary id immediately, then POSTs and swaps in the server's version:
+Inserts the record under a temporary id immediately, then POSTs and re-keys it under the server's id:
 
 ```ts
 const draft = ItemModel.create({ title: "New item" }); // no id → isNew
 await itemStore.optimisticCreate(draft);
-// rolled back (removed) if the POST fails
+// rolled back (removed, original id restored) if the POST fails
 ```
+
+The record you pass in *is* the record in the store — it keeps its prototype (`instanceof` holds, model methods and getters survive) and stays in `records` for the whole round-trip, so the list never flickers. The POST body is serialized before the temporary id is assigned, so `temp_*` is never sent to the server.
+
+::: warning The pending record is not `isNew`
+While the create is in flight the record carries the temporary id, so `isNew` is `false` and `save()` / `delete()` would address the server as `/items/temp_1/`. Don't call them until `optimisticCreate` settles — `await` it first.
+
+Re-entrant calls for the same instance (a double-submitted form) are deduplicated: the second call joins the in-flight request rather than issuing a second POST.
+:::
 
 ### `optimisticDelete`
 
