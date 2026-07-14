@@ -59,7 +59,7 @@
     "docs:preview": "pnpm --filter kita-docs preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc -p bench/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p bench/tsconfig.json",
     "typecheck:bench": "tsc -p bench/tsconfig.json",
     "check:types": "attw --pack .",
     "size": "size-limit",

@@ -1,0 +1,8 @@
+{
+  // Separate project so the tests' Node globals (see tests/types.d.ts) stay out of the
+  // `src` program. Sharing one program would merge them into the ambient scope that
+  // library source is checked against, letting a `process.on(...)` in src/ type-check
+  // clean and then blow up in a browser bundle. Same split, and same reason, as bench/.
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts"]
+}

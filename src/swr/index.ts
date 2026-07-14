@@ -39,9 +39,12 @@ export class AsyncStoreSWR<
 > extends AsyncStore<T, TClient> {
   protected recordTimestamps = new Map<string, number>();
 
+  private pendingRevalidations = new Set<string>();
+
   protected reset() {
     super.reset();
     this.recordTimestamps.clear();
+    this.pendingRevalidations.clear();
   }
 
   /**
@@ -90,9 +93,8 @@ export class AsyncStoreSWR<
     }
 
     if (existing && (isStale || revalidate)) {
-      // Fire-and-forget background revalidation. The request tracker dedupes
-      // concurrent calls inside _fetchAndCacheRecord.
-      void this._fetchAndCacheRecord(id, params);
+      this.revalidateInBackground(id, params);
+
       return existing;
     }
 
@@ -100,7 +102,63 @@ export class AsyncStoreSWR<
   }
 
   /**
+   * Called when a *background* revalidation fails. The default implementation is a
+   * deliberate no-op: under stale-while-revalidate a failed refresh is non-fatal —
+   * the caller already has the stale record and the record stays stale, so the next
+   * `findRecord` retries.
+   *
+   * Override it to surface the failure to your error reporter. A rejection from the
+   * awaited path (no cached record) still propagates to the caller and does not
+   * reach this hook.
+   *
+   * Fires once per background revalidation, not once per caller: concurrent
+   * `findRecord` calls for the same record share a single refresh. An error thrown by
+   * an override is swallowed — a failing reporter must not become the unhandled
+   * rejection this hook exists to prevent.
+   *
+   * @param _error - Rejection value from the background fetch
+   * @param _id - ID of the record being revalidated
+   *
+   * @example
+   * ```ts
+   * class UserStore extends AsyncStoreSWR<UserModel> {
+   *   static readonly id = "users";
+   *
+   *   protected onRevalidationError(error: unknown, id: string) {
+   *     Sentry.captureException(error, { tags: { store: "users", recordId: id } });
+   *   }
+   * }
+   * ```
+   */
+  protected onRevalidationError(_error: unknown, _id: string): void {}
+
+  private revalidateInBackground(id: string, params: Record<string, unknown>): void {
+    const key = `${id}:${JSON.stringify(params)}`;
+
+    // The request tracker already collapses the concurrent HTTP calls, but each caller
+    // holds its own promise — without this, one failed refresh would report once per caller.
+    if (this.pendingRevalidations.has(key)) return;
+
+    this.pendingRevalidations.add(key);
+
+    void this._fetchAndCacheRecord(id, params)
+      .catch((error) => {
+        try {
+          this.onRevalidationError(error, id);
+        } catch {
+          // A throwing reporter must not become the unhandled rejection this hook prevents.
+        }
+      })
+      .finally(() => {
+        this.pendingRevalidations.delete(key);
+      });
+  }
+
+  /**
    * Override the base fetch to stamp the record with a fresh timestamp.
+   *
+   * The stamp lands only after `super` resolves, so a failed fetch leaves the
+   * previous timestamp untouched and the record stays stale.
    */
   protected async _fetchAndCacheRecord(id: string, params: Record<string, unknown>): Promise<T> {
     const record = await super._fetchAndCacheRecord(id, params);
