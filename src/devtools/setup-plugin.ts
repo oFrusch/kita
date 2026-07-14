@@ -1,11 +1,33 @@
-import { capitalize } from "vue";
+import { capitalize, watch } from "vue";
 import type { ApplicationStore } from "../application-store";
-import { AsyncModel } from "../models";
-import { Store } from "../stores";
+import type { AbstractModel } from "../models";
 
 const INSPECTOR_ID = "data-store";
 
 const SKIPPED_KEYS = new Set(["store", "stores"]);
+
+/**
+ * Matched structurally rather than by class: `Store` and `AsyncStore` share no
+ * concrete base, and DevTools only ever reads `records`.
+ */
+type StoreLike = { records: AbstractModel[] };
+
+/** Stores registered on the ApplicationStore, skipping non-store members such as `client`. */
+function getStoreEntries(dataStore: ApplicationStore): Array<[string, StoreLike]> {
+  return Object.entries(dataStore).filter((entry): entry is [string, StoreLike] => {
+    const [, value] = entry;
+
+    return value !== null && typeof value === "object" && Array.isArray(value.records);
+  });
+}
+
+/**
+ * `AbstractModel.toString()` returns the id, which is `undefined` on a record that
+ * has never been persisted — so it is not the `string` its signature promises.
+ */
+function recordLabel(record: AbstractModel): string {
+  return record.toString() || "";
+}
 
 /** Create a flat structure with dot notation to show nesting in DevTools */
 function createFlatState(obj: any, prefix = ""): any[] {
@@ -51,24 +73,6 @@ function flattenArrayItems(result: any[], items: any[], parentKey: string): void
   }
 }
 
-/** Search all stores for a record by ID */
-function findRecordInStores(
-  nodeId: string,
-  allRecords: AsyncModel[],
-  dataStore: ApplicationStore,
-): AsyncModel | undefined {
-  const fromAll = allRecords.find((record: AsyncModel) => record.id === nodeId);
-  if (fromAll) return fromAll;
-
-  for (const store of Object.values(dataStore)) {
-    if (store.records && Array.isArray(store.records)) {
-      const found = store.records.find((record: AsyncModel) => record.id === nodeId);
-      if (found) return found;
-    }
-  }
-  return undefined;
-}
-
 const debounce = (callback: () => void, delay = 300) => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -91,18 +95,6 @@ export default async function setupDevtools(app: any) {
     },
     (api) => {
       const dataStore = app.config.globalProperties.store as ApplicationStore;
-
-      // @ts-expect-error
-      delete dataStore["client"];
-
-      let allRecords = Object.values(dataStore).reduce((acc, s) => {
-        try {
-          return [...acc, ...s.records];
-        } catch (e) {
-          console.error(e);
-          return acc;
-        }
-      }, []);
 
       const filterState = {
         showNew: true,
@@ -139,8 +131,10 @@ export default async function setupDevtools(app: any) {
       api.on.getInspectorTree((payload /** context */) => {
         if (payload.inspectorId !== INSPECTOR_ID) return;
 
-        payload.rootNodes = Object.entries(dataStore)
+        payload.rootNodes = getStoreEntries(dataStore)
           .map(([storeName, storeInstance]) => {
+            // A model may override `toString()`, so building one store's node can throw on
+            // user code. Isolate it: one bad store must not blank the whole inspector.
             try {
               return createStoreTree({
                 storeName,
@@ -148,19 +142,20 @@ export default async function setupDevtools(app: any) {
                 filter: payload.filter,
                 filterState,
               });
-            } catch (e) {
-              console.error(`Failure attempting to create store tree for ${storeName}`, e);
+            } catch (error: unknown) {
+              console.error(`Failure attempting to create store tree for ${storeName}`, error);
               return null;
             }
           })
-          .filter((x) => !!x);
+          .filter((node) => !!node);
       });
 
       // Show the selected record
       api.on.getInspectorState((payload) => {
         if (payload.inspectorId !== INSPECTOR_ID) return;
 
-        const selectedRecord = findRecordInStores(payload.nodeId, allRecords, dataStore);
+        const allRecords = getStoreEntries(dataStore).flatMap(([, store]) => store.records);
+        const selectedRecord = allRecords.find((record) => record.id === payload.nodeId);
 
         if (!selectedRecord) {
           payload.state = {
@@ -188,18 +183,12 @@ export default async function setupDevtools(app: any) {
         }
       });
 
-      // refresh the UI every 2 seconds
-      setInterval(() => {
-        api.sendInspectorTree(INSPECTOR_ID);
-        allRecords = Object.values(dataStore).reduce((acc, s) => {
-          try {
-            return [...acc, ...s.records];
-          } catch (e) {
-            console.error(e);
-            return acc;
-          }
-        }, []);
-      }, 2000);
+      // DevTools re-requests the tree only when told to, so a store gaining or losing
+      // records has to push. `records` is backed by a Vue ref, making this free when idle.
+      watch(
+        () => getStoreEntries(dataStore).map(([, store]) => store.records.length),
+        debounce(() => api.sendInspectorTree(INSPECTOR_ID), 50),
+      );
     },
   );
 }
@@ -211,15 +200,15 @@ function createStoreTree({
   filterState,
 }: {
   storeName: string;
-  storeInstance: Store<any>;
+  storeInstance: StoreLike;
   filter: string;
   filterState: { showNew: boolean; showPersisted: boolean };
 }) {
   const searchFilterFn = filter
-    ? (record: AsyncModel) => record.toString().toLowerCase().includes(filter.toLowerCase())
+    ? (record: AbstractModel) => recordLabel(record).toLowerCase().includes(filter.toLowerCase())
     : () => true;
 
-  const booleanFilterFn = (record: AsyncModel) => {
+  const booleanFilterFn = (record: AbstractModel) => {
     if (filterState.showNew && record.isNew) return true;
     if (filterState.showPersisted && !record.isNew) return true;
 
@@ -235,7 +224,7 @@ function createStoreTree({
       .map((record) => {
         return {
           id: record.id,
-          label: record.toString(),
+          label: recordLabel(record),
           tags: [
             {
               label: record.isNew ? "New" : "Persisted",

@@ -6,10 +6,6 @@ import { AbstractModel } from "./abstract-model";
 export class AsyncModel extends AbstractModel {
   declare store: AsyncStore<this>;
 
-  get isNew(): boolean {
-    return !this.id;
-  }
-
   get stores() {
     return ModelStoreRegistry.allStores() as ApplicationStore;
   }
