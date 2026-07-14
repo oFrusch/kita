@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import registry from "../src/model-store-registry";
 import { AsyncModel, registerModel } from "../src/models";
 import { AsyncStore } from "../src/stores";
@@ -174,6 +174,24 @@ describe("AsyncStore", () => {
       await store.findRecords({ q: "x" });
       await store.findRecords({ q: "x" }, true);
       expect(client.get).toHaveBeenCalledTimes(2);
+    });
+
+    it("honors a cacheTTL longer than the cache default across an unrelated write", async () => {
+      vi.useFakeTimers();
+      client.get.mockResolvedValue(mockResponse([{ id: "1", email: "a" }]));
+
+      await store.findRecords({ page: 1 }, { cacheTTL: 300_000 });
+      expect(client.get).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(70_000);
+      await store.findRecords({ page: 2 });
+      expect(client.get).toHaveBeenCalledTimes(2);
+
+      vi.advanceTimersByTime(10_000);
+      await store.findRecords({ page: 1 }, { cacheTTL: 300_000 });
+      expect(client.get).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
     });
   });
 

@@ -11,13 +11,18 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 - `AsyncStore.createPaginatedQuery` no longer routes through the record-only query cache, which dropped pagination `meta` on a cache hit and made `hasMore` collapse to `false` after a reset.
 - `PaginatedQuery` state (`hasMore` / `isLoading` / `page` / `totalCount` / `totalPages`) is now backed by Vue refs, so it stays reactive in components — fixes a stuck "loading" state when the query is held in a `ref`/`shallowRef`.
 - `AsyncStore.findRecords` now returns response `meta` on a cache hit, not just on the first fetch. The query cache previously stored records only, so a cached paginated query lost its `meta` (and `hasMore`/`totalCount` with it).
+- `QueryCache` no longer grows without bound. Expiry was lazy and per-key — an entry was only dropped when that exact key was read again — so a key written once and never re-read lived for the life of the page. Every `set` now sweeps expired entries and evicts the oldest once the cache is over `maxSize` (default 100).
 
 ### Added
 
 - `QueryCache` can now store response metadata alongside records: `set(params, data, meta?)` plus a new `getEntry(params, ttl?)` that returns `{ data, meta }`. `get()` is unchanged. The class gains an optional second type param (`QueryCache<T, M>`, `M` defaults to `Record<string, unknown>`).
+- `QueryCacheOptions` (`{ ttl?, maxSize? }`) is now public, and `new QueryCache({ ttl, maxSize })` configures both. The `new QueryCache(30_000)` numeric-TTL form still works.
+- `set(params, data, meta?, ttl?)` takes an optional per-entry TTL. The expiry sweep honours each entry's own lifetime, so an entry written with a longer TTL survives writes to unrelated keys — this is what makes `AsyncStore.findRecords`' `cacheTTL` option hold beyond the cache's 60s default.
 
 ### Changed
 
+- **Potentially breaking:** `QueryCache`'s `ttl` and `maxSize` must each be a positive integer. Values that were silently accepted before — `new QueryCache(0)`, a negative or fractional TTL — now throw a `RangeError` at construction rather than producing a cache that never stores anything.
+- **Potentially breaking:** `AsyncStore`'s internal query cache is now bounded to 100 entries (previously unbounded). A store that caches more than 100 distinct param sets will now evict the oldest; raise it by passing `maxSize` to a `QueryCache` you own.
 - Internal refactor: `src/stores/index.ts` and `src/models/index.ts` split into per-class modules (`abstract-store.ts`/`store.ts`/`async-store.ts` and `abstract-model.ts`/`model.ts`/`async-model.ts`). The barrel re-exports are unchanged, so this is invisible to consumers.
 - `@vue/devtools-api` is now lazy-loaded via a dynamic `import()` behind a `process.env.NODE_ENV !== "production"` guard, so production consumer bundles tree-shake it out entirely.
 
