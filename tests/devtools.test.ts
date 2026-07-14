@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { ApplicationStore, createAndRegisterStore } from "../src/application-store";
 import setupDevtools from "../src/devtools/setup-plugin";
 import { AsyncModel, Model, registerModel } from "../src/models";

@@ -1,4 +1,5 @@
 import { capitalize, watch } from "vue";
+
 import type { ApplicationStore } from "../application-store";
 import type { AbstractModel } from "../models";
 

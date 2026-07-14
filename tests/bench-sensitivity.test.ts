@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { measureCase } from "../bench/harness/measure.mjs";
 
 // Opt-in: only runs when RUN_BENCH_SENSITIVITY=1 and valgrind is available.

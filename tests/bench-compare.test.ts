@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { compare, formatTable } from "../bench/harness/compare.mjs";
 
 const baseline = { alpha: 1000, beta: 2000 };

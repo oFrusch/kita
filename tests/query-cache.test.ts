@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
 import { QueryCache } from "../src/utils/query-cache";
 
 describe("QueryCache", () => {

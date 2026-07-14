@@ -1,4 +1,5 @@
 import { reactive, Ref, ref, toRaw } from "vue";
+
 import type { HttpClient } from "../http";
 import ModelStoreRegistry from "../model-store-registry";
 import { AsyncModel } from "../models";
@@ -387,28 +388,33 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
 
   /**
    * Delete a record optimistically - removes from store immediately, syncs with server.
-   * Restores record on error.
+   *
+   * On error the original model instance is restored at its previous position, so
+   * references the caller still holds stay valid and keep their model behaviour.
    */
   public async optimisticDelete(record: T): Promise<void> {
-    const snapshot = { ...record };
-    const index = this.records.indexOf(record);
+    // Reads off the records ref yield reactive proxies, so identity lookups miss a raw
+    // model once the array has been rebuilt by `_removeRecord`. Match its id semantics.
+    const index = this.records.findIndex((r) => r.id === record.id);
 
     return withOptimisticUpdate(
       () => {
         this._removeRecord(record);
-        return { snapshot, index };
+
+        return { record, index };
       },
       async () => {
         await this._deleteRecord(record);
       },
-      ({ snapshot, index }) => {
-        // Restore the record at its original position
-        this._recordsById.set(snapshot.id, snapshot as T);
-        if (index >= 0 && index < this.records.length) {
-          this.records.splice(index, 0, snapshot as T);
-        } else {
-          this.records.push(snapshot as T);
-        }
+      ({ record, index }) => {
+        this._recordsById.set(record.id, record);
+
+        // Records may have come or gone while the DELETE was in flight, so the saved
+        // index can now be past the end; clamping appends instead of splicing short.
+        const insertionIndex =
+          index >= 0 ? Math.min(index, this.records.length) : this.records.length;
+
+        this.records.splice(insertionIndex, 0, record);
       },
     );
   }

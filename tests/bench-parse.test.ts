@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { parseIr } from "../bench/harness/parse.mjs";
 
 const SAMPLE = `version: 1

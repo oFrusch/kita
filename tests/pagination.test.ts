@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { computed } from "vue";
+
 import { PaginatedQuery, type PaginatedResult } from "../src/utils/pagination";
 
 describe("PaginatedQuery", () => {

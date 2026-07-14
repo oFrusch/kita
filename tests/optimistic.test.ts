@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+
 import { withOptimisticUpdate } from "../src/utils/optimistic";
 
 describe("withOptimisticUpdate", () => {

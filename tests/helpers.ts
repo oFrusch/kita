@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+
 import type { HttpClient, HttpResponse } from "../src/http";
 import registry from "../src/model-store-registry";
 

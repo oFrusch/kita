@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import registry from "../src/model-store-registry";
 import { AsyncModel, registerModel } from "../src/models";
 import { AsyncStoreSWR } from "../src/swr";
