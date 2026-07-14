@@ -1,4 +1,4 @@
-import { capitalize } from "vue";
+import { capitalize, watch } from "vue";
 import type { ApplicationStore } from "../application-store";
 import type { AbstractModel } from "../models";
 
@@ -73,20 +73,6 @@ function flattenArrayItems(result: any[], items: any[], parentKey: string): void
   }
 }
 
-/** Search all stores for a record by ID */
-function findRecordInStores(
-  nodeId: string,
-  allRecords: AbstractModel[],
-  dataStore: ApplicationStore,
-): AbstractModel | undefined {
-  const fromAll = allRecords.find((record) => record.id === nodeId);
-  if (fromAll) return fromAll;
-
-  return getStoreEntries(dataStore)
-    .flatMap(([, store]) => store.records)
-    .find((record) => record.id === nodeId);
-}
-
 const debounce = (callback: () => void, delay = 300) => {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
@@ -109,8 +95,6 @@ export default async function setupDevtools(app: any) {
     },
     (api) => {
       const dataStore = app.config.globalProperties.store as ApplicationStore;
-
-      let allRecords = getStoreEntries(dataStore).flatMap(([, store]) => store.records);
 
       const filterState = {
         showNew: true,
@@ -170,7 +154,8 @@ export default async function setupDevtools(app: any) {
       api.on.getInspectorState((payload) => {
         if (payload.inspectorId !== INSPECTOR_ID) return;
 
-        const selectedRecord = findRecordInStores(payload.nodeId, allRecords, dataStore);
+        const allRecords = getStoreEntries(dataStore).flatMap(([, store]) => store.records);
+        const selectedRecord = allRecords.find((record) => record.id === payload.nodeId);
 
         if (!selectedRecord) {
           payload.state = {
@@ -198,11 +183,12 @@ export default async function setupDevtools(app: any) {
         }
       });
 
-      // refresh the UI every 2 seconds
-      setInterval(() => {
-        api.sendInspectorTree(INSPECTOR_ID);
-        allRecords = getStoreEntries(dataStore).flatMap(([, store]) => store.records);
-      }, 2000);
+      // DevTools re-requests the tree only when told to, so a store gaining or losing
+      // records has to push. `records` is backed by a Vue ref, making this free when idle.
+      watch(
+        () => getStoreEntries(dataStore).map(([, store]) => store.records.length),
+        debounce(() => api.sendInspectorTree(INSPECTOR_ID), 50),
+      );
     },
   );
 }
