@@ -1,4 +1,4 @@
-import { Ref, ref } from "vue";
+import { reactive, Ref, ref, toRaw } from "vue";
 import type { HttpClient } from "../http";
 import ModelStoreRegistry from "../model-store-registry";
 import { AsyncModel } from "../models";
@@ -30,6 +30,8 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
   protected APIUrl: string;
   protected requestTracker = new RequestTracker();
   private queryCache = new QueryCache<T>();
+  private nextTemporaryId = 0;
+  private readonly pendingCreates = new Map<T, Promise<T>>();
 
   constructor(client: TClient, args: ConstructorArgs) {
     this._records = ref([]);
@@ -66,6 +68,7 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
     this._recordsById.clear();
     this.requestTracker.clear();
     this.queryCache.clear();
+    this.pendingCreates.clear();
     this.nextPage = 0;
     this.page = 0;
   }
@@ -205,14 +208,34 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
     return updatedRecord;
   }
 
+  /**
+   * POST a record and merge the server response onto it. Store membership is
+   * left to the caller, so both the `save()` path and the optimistic path can
+   * share the request.
+   *
+   * @param record - The model instance to persist and merge the response into
+   * @param payload - Request body; defaults to the record's current state
+   */
+  protected async _postRecord(record: T, payload: string = record.serialize()): Promise<T> {
+    const res = await this.client.post<any>(`/${this.APIUrl}/`, payload);
+    // Merge onto the record being saved rather than building a model out of
+    // `res.data`: the caller already holds this instance, and the response is
+    // only there to carry the server-assigned id. Merge through the *reactive*
+    // view, because `records` stores raw targets — assigning straight onto the
+    // instance bypasses the proxy's set trap, so a record already in the list
+    // would never re-render. `reactive()` hands back the proxy Vue has cached
+    // for this target, and writes through to it.
+    Object.assign(reactive(record), res.data);
+
+    return record;
+  }
+
   protected async _createRecord(record: T): Promise<T> {
-    const res = await this.client.post<any>(`/${this.APIUrl}/`, record.serialize());
-    // Merge the server response (which carries the assigned id) onto the record
-    // being saved, then register that model instance under its new id. Pushing
-    // `res.data` directly would store raw JSON as a *second*, non-model record.
-    Object.assign(record, res.data);
+    await this._postRecord(record);
+
     const newRecord = this._pushRecord(record);
     this.queryCache.invalidate();
+
     return newRecord;
   }
 
@@ -243,25 +266,98 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
   /**
    * Create a record optimistically - adds to store immediately, syncs with server.
    * Rolls back on error.
+   *
+   * The record instance itself is inserted under a temporary id and stays in
+   * `records` for the whole round-trip, so it keeps its prototype and never
+   * flickers out of the list. On success only the `_recordsById` key is swapped
+   * from the temporary id to the server id.
+   *
+   * The pending record carries the temporary id, so it is *not* `isNew` while
+   * the POST is in flight — do not call `save()` / `delete()` on it until this
+   * promise settles. Re-entrant calls for the same instance (a double-submitted
+   * form) share the in-flight request rather than issuing a second POST.
+   *
+   * @param record - A record not yet in the store; pass an existing one to `save()`
+   * @throws If the store already holds this instance under its current id
    */
   public async optimisticCreate(record: T): Promise<T> {
-    const tempId = `temp_${Date.now()}`;
-    const tempRecord = { ...record, id: tempId } as T;
+    const target = toRaw(record);
+    const inFlight = this.pendingCreates.get(target);
 
-    return withOptimisticUpdate(
+    if (inFlight) return inFlight;
+
+    // Re-creating an instance the store already holds is never right: it would
+    // POST a duplicate row, push the instance into `records` twice, and let a
+    // rollback evict the copy the first create confirmed. Re-persisting an
+    // existing record is what `save()` is for.
+    const stored = this._recordsById.get(record.id);
+
+    if (stored && toRaw(stored) === target) {
+      throw new Error(
+        `Record "${record.id}" is already in the store — use save() to update it, not optimisticCreate().`,
+      );
+    }
+
+    const originalId = record.id;
+    const temporaryId = `temp_${++this.nextTemporaryId}`;
+    // Serialized before the temporary id is assigned, so the POST body carries
+    // the pristine record. `serialize(["id"])` would strip `id` at every nesting
+    // depth, dropping nested ids too.
+    const payload = record.serialize();
+
+    const request = withOptimisticUpdate(
       () => {
-        this._pushRecord(tempRecord);
-        return tempRecord;
+        Object.assign(reactive(record), { id: temporaryId });
+        this._pushRecord(record);
       },
       async () => {
-        const created = await this._createRecord(record);
-        this._removeRecord(tempRecord);
-        return created;
+        await this._postRecord(record, payload);
+
+        this._recordsById.delete(temporaryId);
+
+        // The server id may already be held by a *different* instance — a
+        // concurrent `findRecords` that returned the new row, or an upsert
+        // endpoint echoing an existing one. Mirror `_pushRecord` and merge into
+        // the incumbent, rather than leaving two array entries under one id.
+        const existing = this._recordsById.get(record.id);
+
+        if (existing && toRaw(existing) !== target) {
+          Object.assign(reactive(existing), record);
+          this.records = this.records.filter((r) => toRaw(r) !== target);
+          this.queryCache.invalidate();
+
+          return existing;
+        }
+
+        this._recordsById.set(record.id, record);
+        this.queryCache.invalidate();
+
+        return record;
       },
-      (snapshot) => {
-        this._removeRecord(snapshot);
+      () => {
+        // The instance may already have been re-keyed to a real server id by a
+        // confirmed create, in which case unwinding would evict a live record.
+        // Only roll back what is still parked under the temporary id.
+        if (record.id !== temporaryId) return;
+
+        this._recordsById.delete(temporaryId);
+        // Not `_removeRecord`: it matches on `record.id`, which is a moving
+        // target here. Evict by identity — `toRaw` because `records` is a deep
+        // `ref`, so its instrumented `filter` hands the callback reactive
+        // proxies, never the raw instance.
+        this.records = this.records.filter((r) => toRaw(r) !== target);
+
+        Object.assign(reactive(record), { id: originalId });
       },
     );
+
+    this.pendingCreates.set(target, request);
+
+    try {
+      return await request;
+    } finally {
+      this.pendingCreates.delete(target);
+    }
   }
 
   /**

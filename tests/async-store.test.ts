@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { effect, toRaw } from "vue";
 import registry from "../src/model-store-registry";
 import { AsyncModel, registerModel } from "../src/models";
 import { AsyncStore } from "../src/stores";
-import { createMockClient, mockResponse, resetRegistry, type MockHttpClient } from "./helpers";
+import {
+  createMockClient,
+  deferred,
+  mockResponse,
+  resetRegistry,
+  type MockHttpClient,
+} from "./helpers";
 
 class UserModel extends AsyncModel {
   static readonly id = "users";
@@ -317,25 +324,206 @@ describe("AsyncStore", () => {
       await expect(store.optimisticDelete(m)).rejects.toThrow("denied");
       expect(store.peekRecord("1")).toBeDefined();
     });
+  });
 
-    it("optimisticCreate adds a temp record and replaces on success", async () => {
-      client.post.mockResolvedValue(mockResponse({ id: "real-1", email: "a" }));
+  describe("optimisticCreate", () => {
+    it("holds the original model instance in the store while the POST is in flight", async () => {
+      const post = deferred();
+      client.post.mockReturnValue(post.promise);
 
-      const draft = UserModel.create({ email: "a" });
-      await store.optimisticCreate(draft);
+      const draft = UserModel.create({ email: "a@b.com" });
+      const created = store.optimisticCreate(draft);
 
-      expect(store.peekRecord("real-1")).toBeDefined();
+      // Observed synchronously: the pending record is the draft itself, not a clone.
+      expect(store.records).toHaveLength(1);
+      expect(toRaw(store.records[0])).toBe(draft);
+      expect(store.records[0]).toBeInstanceOf(UserModel);
+      expect(store.peekRecord(draft.id)).toBe(draft);
+
+      post.resolve(mockResponse({ id: "real-1", email: "a@b.com" }));
+      await created;
     });
 
-    it("optimisticCreate removes the temp record on server error", async () => {
+    it("keeps model methods and getters alive on the pending record", async () => {
+      const post = deferred();
+      client.post.mockReturnValue(post.promise);
+
+      const draft = UserModel.create({ email: "a@b.com" });
+      const created = store.optimisticCreate(draft);
+      const pending = store.records[0];
+
+      expect(pending.save).toBeTypeOf("function");
+      expect(pending.delete).toBeTypeOf("function");
+      // A plain-object clone would report `undefined` here, not a boolean. False
+      // because the pending record carries the temporary id — which is also why
+      // `save()` / `delete()` are off-limits until the create settles.
+      expect(pending.isNew).toBe(false);
+
+      post.resolve(mockResponse({ id: "real-1", email: "a@b.com" }));
+      await created;
+    });
+
+    it("never leaks the temporary id into the POST body", async () => {
+      client.post.mockResolvedValue(mockResponse({ id: "real-1", email: "a@b.com" }));
+
+      await store.optimisticCreate(UserModel.create({ email: "a@b.com" }));
+
+      const [url, body] = client.post.mock.calls[0];
+      expect(url).toBe("/users/");
+      expect(body).not.toContain("temp_");
+      expect(JSON.parse(body)).toEqual({ email: "a@b.com" });
+    });
+
+    it("leaves exactly one entry, keyed by the server id, on success", async () => {
+      client.post.mockResolvedValue(mockResponse({ id: "real-1", email: "a@b.com" }));
+
+      const draft = UserModel.create({ email: "a@b.com" });
+      const create = store.optimisticCreate(draft);
+      const temporaryId = draft.id;
+
+      const result = await create;
+
+      expect(result).toBe(draft);
+      expect(store.peekRecord("real-1")).toBe(draft);
+      expect(store.peekRecord(temporaryId)).toBeUndefined();
+      expect(store.records).toHaveLength(1);
+      expect(store.records.filter((r) => toRaw(r) === draft)).toHaveLength(1);
+    });
+
+    it("rolls the record and its original id back on server error", async () => {
       client.post.mockRejectedValue(new Error("bad"));
 
-      const draft = UserModel.create({ email: "a" });
-      await expect(store.optimisticCreate(draft)).rejects.toThrow("bad");
+      const draft = UserModel.create({ email: "a@b.com" });
+      const create = store.optimisticCreate(draft);
+      const temporaryId = draft.id;
 
-      // The records array should not contain a `temp_...`-id record after rollback
-      const tempRecord = store.records.find((r) => r.id?.startsWith?.("temp_"));
-      expect(tempRecord).toBeUndefined();
+      expect(temporaryId).toMatch(/^temp_/);
+      await expect(create).rejects.toThrow("bad");
+
+      expect(store.records).toHaveLength(0);
+      expect(store.peekRecord(temporaryId)).toBeUndefined();
+      expect(draft.id).toBeUndefined();
+      expect(draft.isNew).toBe(true);
+    });
+
+    it("gives concurrent creates distinct temporary ids", async () => {
+      const first = deferred();
+      const second = deferred();
+      client.post.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+      const draftA = UserModel.create({ email: "a@b.com" });
+      const draftB = UserModel.create({ email: "b@b.com" });
+      const creates = Promise.all([store.optimisticCreate(draftA), store.optimisticCreate(draftB)]);
+
+      expect(draftA.id).not.toBe(draftB.id);
+      expect(store.records).toHaveLength(2);
+      expect(toRaw(store.records[0])).toBe(draftA);
+      expect(toRaw(store.records[1])).toBe(draftB);
+      expect(store.peekRecord(draftA.id)).toBe(draftA);
+      expect(store.peekRecord(draftB.id)).toBe(draftB);
+
+      first.resolve(mockResponse({ id: "real-1", email: "a@b.com" }));
+      second.resolve(mockResponse({ id: "real-2", email: "b@b.com" }));
+      await creates;
+
+      expect(store.records).toHaveLength(2);
+      expect(store.peekRecord("real-1")).toBe(draftA);
+      expect(store.peekRecord("real-2")).toBe(draftB);
+    });
+
+    it("re-renders with the server id once the create lands", async () => {
+      const post = deferred();
+      client.post.mockReturnValue(post.promise);
+
+      const draft = UserModel.create({ email: "a@b.com" });
+
+      // Asserting on `records` / `peekRecord` cannot catch a missing reactive
+      // trigger: both read fresh values straight off the instance. Only a
+      // tracked effect sees whether a component would actually redraw.
+      let rendered: string[] = [];
+      effect(() => {
+        rendered = store.records.map((r) => r.id);
+      });
+
+      expect(rendered).toEqual([]);
+
+      const created = store.optimisticCreate(draft);
+      expect(rendered).toEqual([draft.id]);
+
+      post.resolve(mockResponse({ id: "real-1", email: "a@b.com" }));
+      await created;
+
+      expect(rendered).toEqual(["real-1"]);
+    });
+
+    it("shares the in-flight request between re-entrant creates of one instance", async () => {
+      const post = deferred();
+      client.post.mockReturnValue(post.promise);
+
+      const draft = UserModel.create({ email: "a@b.com" });
+      const both = Promise.all([store.optimisticCreate(draft), store.optimisticCreate(draft)]);
+
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect(store.records).toHaveLength(1);
+
+      post.resolve(mockResponse({ id: "real-1", email: "a@b.com" }));
+      const [first, second] = await both;
+
+      expect(first).toBe(draft);
+      expect(second).toBe(draft);
+      expect(store.records).toHaveLength(1);
+      expect(JSON.parse(client.post.mock.calls[0][1])).toEqual({ email: "a@b.com" });
+    });
+
+    it("merges into the incumbent when the server returns an id already in the store", async () => {
+      client.post.mockResolvedValue(mockResponse({ id: "5", email: "server@b.com" }));
+
+      const existing = UserModel.create({ id: "5", email: "existing@b.com" });
+      const draft = UserModel.create({ email: "a@b.com" });
+
+      const created = await store.optimisticCreate(draft);
+
+      expect(store.records).toHaveLength(1);
+      expect(created).toBe(existing);
+      expect(store.peekRecord("5")).toBe(existing);
+      expect(existing.email).toBe("server@b.com");
+    });
+
+    it("rolls back exactly once when a re-entrant create fails", async () => {
+      const post = deferred();
+      client.post.mockReturnValue(post.promise);
+
+      const draft = UserModel.create({ email: "a@b.com" });
+      const both = Promise.allSettled([
+        store.optimisticCreate(draft),
+        store.optimisticCreate(draft),
+      ]);
+      const temporaryId = draft.id;
+
+      post.reject(new Error("bad"));
+      const results = await both;
+
+      expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+      expect(store.records).toHaveLength(0);
+      expect(store.peekRecord(temporaryId)).toBeUndefined();
+      expect(draft.id).toBeUndefined();
+      expect(draft.isNew).toBe(true);
+    });
+
+    it("refuses to re-create a record the store already holds", async () => {
+      client.post.mockResolvedValue(mockResponse({ id: "real-1", email: "a@b.com" }));
+
+      const draft = UserModel.create({ email: "a@b.com" });
+      await store.optimisticCreate(draft);
+
+      // Rollback evicts by identity, so a second create for a confirmed instance
+      // could otherwise delete the record the first one just established.
+      await expect(store.optimisticCreate(draft)).rejects.toThrow("already in the store");
+
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect(store.records).toHaveLength(1);
+      expect(draft.id).toBe("real-1");
+      expect(store.peekRecord("real-1")).toBe(draft);
     });
   });
 
