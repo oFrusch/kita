@@ -59,7 +59,7 @@
     "docs:preview": "pnpm --filter kita-docs preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit && tsc -p bench/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc -p tests/tsconfig.json && tsc -p bench/tsconfig.json",
     "typecheck:bench": "tsc -p bench/tsconfig.json",
     "check:types": "attw --pack .",
     "size": "size-limit",
@@ -81,13 +81,13 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
     "@size-limit/preset-small-lib": "^12.1.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.1",
     "oxfmt": "^0.54.0",
     "oxlint": "^1.69.0",
     "size-limit": "^12.1.0",
     "tsup": "^8.3.0",
     "typescript": "^5.5.0",
-    "vitest": "^2.1.0",
+    "vitest": "^3.2.7",
     "vue": "^3.5.0"
   },
   "engines": {
