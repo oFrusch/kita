@@ -5,6 +5,10 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
 
+    // tsup injects `baseUrl` into its dts-rollup tsconfig, which TS6 flags as
+    // deprecated; our own config never sets it. This silences that one warning.
+    "ignoreDeprecations": "6.0",
+
     "strict": true,
     "allowJs": true,
     "noImplicitAny": true,
