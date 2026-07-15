@@ -6,6 +6,7 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ### Breaking Changes
 
+- Minimum supported Node.js is now **22** (`engines.node: ">=22"`, was `>=20`). The build toolchain (pnpm 11) requires Node 22.13+, and CI no longer tests Node 20.
 - `AsyncStore.optimisticCreate` no longer routes through `_createRecord`; it now calls the new `_postRecord` hook directly and manages store membership itself. Subclasses that hooked the create path by overriding `protected _createRecord` will find that override **silently skipped on the optimistic path** (it still runs for `save()` / `model.save()`). Move such hooks to `_postRecord`, which is shared by both create paths.
 - `AsyncStore.optimisticCreate` now throws if the store already holds the instance under its current id. Previously it POSTed a duplicate row to the server and pushed the instance into `records` twice. Use `save()` to re-persist an existing record.
 
