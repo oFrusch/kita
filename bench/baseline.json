@@ -1,15 +1,15 @@
 {
-  "node": "v24.16.0",
-  "valgrind": "valgrind-3.26.0",
+  "node": "v22.23.1",
+  "valgrind": "valgrind-3.22.0",
   "cases": {
-    "reactive-construct": 3404463841,
-    "reactive-write": 143566751,
-    "store-bulk-push": 877302487,
-    "store-peek": 119230619,
-    "query-cache": 1499566822,
-    "request-dedupe": 520996913,
-    "pagination-loadmore": 571027492,
-    "optimistic-success": 66375345,
-    "optimistic-rollback": 1189144617
+    "reactive-construct": 2282818387,
+    "reactive-write": 128074292,
+    "store-bulk-push": 870437183,
+    "store-peek": 117885533,
+    "query-cache": 1545356222,
+    "request-dedupe": 161576254,
+    "pagination-loadmore": 588576432,
+    "optimistic-success": 84337832,
+    "optimistic-rollback": 1603978997
   }
 }
