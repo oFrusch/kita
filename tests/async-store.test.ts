@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { effect, toRaw } from "vue";
+import { computed, effect, toRaw } from "vue";
 
 import registry from "../src/model-store-registry";
 import { AsyncModel, registerModel } from "../src/models";
@@ -111,6 +111,36 @@ describe("AsyncStore", () => {
       client.get.mockResolvedValue(mockResponse({ id: "1", email: "x" }));
       await store.findRecord("1", { include: "posts" });
       expect(client.get).toHaveBeenCalledWith("/users/1/", { params: { include: "posts" } });
+    });
+  });
+
+  describe("peekRecord reactivity (regression)", () => {
+    // Must assert through a tracked computed — a direct peekRecord read always
+    // sees fresh state and can't catch a computed caching a miss forever.
+    it("invalidates a computed that peeked a not-yet-cached record once it's pushed", () => {
+      const id = "1";
+      const peeked = computed(() => store.peekRecord(id));
+
+      expect(peeked.value).toBeUndefined();
+
+      const user = UserModel.create({ id, email: "a@b.com" });
+      store._pushRecord(user);
+
+      expect(peeked.value).toBe(user);
+    });
+
+    it("leaves a computed peeking a different absent id unaffected", () => {
+      const peekedA = computed(() => store.peekRecord("a"));
+      const peekedB = computed(() => store.peekRecord("b"));
+
+      expect(peekedA.value).toBeUndefined();
+      expect(peekedB.value).toBeUndefined();
+
+      const userA = UserModel.create({ id: "a", email: "a@b.com" });
+      store._pushRecord(userA);
+
+      expect(peekedA.value).toBe(userA);
+      expect(peekedB.value).toBeUndefined();
     });
   });
 

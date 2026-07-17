@@ -1,4 +1,4 @@
-import { reactive, Ref, ref, toRaw } from "vue";
+import { reactive, Ref, ref, shallowReactive, toRaw } from "vue";
 
 import type { HttpClient } from "../http";
 import ModelStoreRegistry from "../model-store-registry";
@@ -24,6 +24,9 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
   static readonly id: string;
 
   protected readonly _records: Ref<T[]>;
+  // Must stay reactive — peekRecord is read inside consumer computeds, and a
+  // plain Map read tracks nothing. shallowReactive, not reactive: stored models
+  // must keep their identity for Object.assign merges and toRaw checks.
   protected readonly _recordsById: Map<string, T>;
   protected readonly client: TClient;
   protected page = 1;
@@ -36,7 +39,7 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
 
   constructor(client: TClient, args: ConstructorArgs) {
     this._records = ref([]);
-    this._recordsById = new Map();
+    this._recordsById = shallowReactive(new Map());
     this.client = client;
 
     if (args.APIUrl) {
@@ -74,6 +77,10 @@ export class AsyncStore<T extends AsyncModel, TClient extends HttpClient = HttpC
     this.page = 0;
   }
 
+  /**
+   * Synchronous cache read — no fetch. Reactive per key, so it is safe inside
+   * computeds/watchers even on a cache miss.
+   */
   public peekRecord(id: string): T | undefined {
     return this._recordsById.get(id);
   }
