@@ -25,7 +25,7 @@ export default defineConfig({
       { text: "API", link: "/api/application-store" },
       { text: "Playground", link: PLAYGROUND },
       {
-        text: "0.2.0",
+        text: "0.3.0",
         items: [
           { text: "Changelog", link: `${GITHUB}/blob/main/CHANGELOG.md` },
           { text: "npm", link: "https://www.npmjs.com/package/@ofrusch/kita" },

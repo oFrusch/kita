@@ -4,11 +4,20 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ## Unreleased
 
+## 0.3.0 — 2026-07-24
+
 ### Breaking Changes
 
 - Minimum supported Node.js is now **22** (`engines.node: ">=22"`, was `>=20`). The build toolchain (pnpm 11) requires Node 22.13+, and CI no longer tests Node 20.
 - `AsyncStore.optimisticCreate` no longer routes through `_createRecord`; it now calls the new `_postRecord` hook directly and manages store membership itself. Subclasses that hooked the create path by overriding `protected _createRecord` will find that override **silently skipped on the optimistic path** (it still runs for `save()` / `model.save()`). Move such hooks to `_postRecord`, which is shared by both create paths.
 - `AsyncStore.optimisticCreate` now throws if the store already holds the instance under its current id. Previously it POSTed a duplicate row to the server and pushed the instance into `records` twice. Use `save()` to re-persist an existing record.
+
+### Added
+
+- `AsyncStore._postRecord(record, payload?)` — a new `protected` override point carrying the bare POST-and-merge, split out of `_createRecord` and shared with `optimisticCreate`. Overriding it hooks both create paths at once.
+- `QueryCache` can now store response metadata alongside records: `set(params, data, meta?)` plus a new `getEntry(params, ttl?)` that returns `{ data, meta }`. `get()` is unchanged. The class gains an optional second type param (`QueryCache<T, M>`, `M` defaults to `Record<string, unknown>`).
+- `QueryCacheOptions` (`{ ttl?, maxSize? }`) is now public, and `new QueryCache({ ttl, maxSize })` configures both. The `new QueryCache(30_000)` numeric-TTL form still works.
+- `QueryCache.set(params, data, meta?, ttl?)` takes an optional per-entry TTL. The expiry sweep honours each entry's own lifetime, so an entry written with a longer TTL survives writes to unrelated keys — this is what makes `AsyncStore.findRecords`' `cacheTTL` option hold beyond the cache's 60s default.
 
 ### Fixed
 
@@ -24,13 +33,6 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 - `AsyncStore.findRecords` now returns response `meta` on a cache hit, not just on the first fetch. The query cache previously stored records only, so a cached paginated query lost its `meta` (and `hasMore`/`totalCount` with it).
 - `QueryCache` no longer grows without bound. Expiry was lazy and per-key — an entry was only dropped when that exact key was read again — so a key written once and never re-read lived for the life of the page. Every `set` now sweeps expired entries and evicts the oldest once the cache is over `maxSize` (default 100).
 
-### Added
-
-- `AsyncStore._postRecord(record, payload?)` — a new `protected` override point carrying the bare POST-and-merge, split out of `_createRecord` and shared with `optimisticCreate`. Overriding it hooks both create paths at once.
-- `QueryCache` can now store response metadata alongside records: `set(params, data, meta?)` plus a new `getEntry(params, ttl?)` that returns `{ data, meta }`. `get()` is unchanged. The class gains an optional second type param (`QueryCache<T, M>`, `M` defaults to `Record<string, unknown>`).
-- `QueryCacheOptions` (`{ ttl?, maxSize? }`) is now public, and `new QueryCache({ ttl, maxSize })` configures both. The `new QueryCache(30_000)` numeric-TTL form still works.
-- `set(params, data, meta?, ttl?)` takes an optional per-entry TTL. The expiry sweep honours each entry's own lifetime, so an entry written with a longer TTL survives writes to unrelated keys — this is what makes `AsyncStore.findRecords`' `cacheTTL` option hold beyond the cache's 60s default.
-
 ### Changed
 
 - **Potentially breaking:** `QueryCache`'s `ttl` and `maxSize` must each be a positive integer. Values that were silently accepted before — `new QueryCache(0)`, a negative or fractional TTL — now throw a `RangeError` at construction rather than producing a cache that never stores anything.
@@ -40,9 +42,9 @@ All notable changes to `@ofrusch/kita` are documented here. Format loosely follo
 
 ### Notes
 
-- **Bundle size baseline** (gzip/brotli, peer deps excluded, measured with [size-limit](https://github.com/ai/size-limit) — run `pnpm size`):
-  - Full public surface (`import * as kita`): **3.74 kB**
-  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.33 kB**
+- **Bundle size baseline** (brotli, peer deps excluded, measured with [size-limit](https://github.com/ai/size-limit) — run `pnpm size`):
+  - Full public surface (`import * as kita`): **4.24 kB** (was 3.74 kB in 0.2.0)
+  - Typical quick-start import (`ApplicationStore`, `AsyncModel`, `AsyncStore`, `registerModel`, `reactive`, `createAndRegisterStore`): **3.75 kB** (was 3.33 kB)
 
 ## 0.2.0 — 2026-06-08
 
