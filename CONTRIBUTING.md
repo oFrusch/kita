@@ -83,22 +83,34 @@ enforce, two conventions the formatter does not catch — match the surrounding 
 The package is published to npm as `@ofrusch/kita`.
 
 ```bash
-# 1. bump the version
-#    edit kita/package.json — semver:
-#    - patch (0.1.x): bugfixes, non-breaking type improvements
-#    - minor (0.x.0): new public API, opt-in features
+# 1. bump the version — semver:
+#    - patch (0.0.x): bugfixes, non-breaking type improvements
+#    - minor (0.x.0): new public API, opt-in features (and breaking changes pre-1.0)
 #    - major (x.0.0): breaking changes
+#    edit BOTH package.json and the version label in docs/.vitepress/config.ts
 
-# 2. ensure quality
-pnpm test           # all 138 must pass
-pnpm typecheck      # clean
+# 2. roll CHANGELOG.md
+#    rename "## Unreleased" to "## <version> — <YYYY-MM-DD>", add a fresh
+#    empty "## Unreleased" above it, and edit the entry for consumers
+
+# 3. ensure quality — all must be green
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm format:check
 pnpm build          # produces dist/ — ESM, CJS, .d.ts
+pnpm check:types    # attw
+pnpm size           # size-limit budgets
 
-# 3. publish (prepublishOnly hook re-runs the build)
+# 4. commit and push
+git commit -am "chore | release v<version>" && git push origin main
+
+# 5. publish (prepublishOnly hook re-runs the build)
 pnpm publish --access public
 
-# 4. update CHANGELOG.md
-#    add an entry under the new version describing what changed
+# 6. tag and cut the GitHub release, with notes taken from the changelog entry
+git tag -a v<version> -m "v<version>" && git push origin v<version>
+gh release create v<version> --title "v<version>" --notes-file <notes>
 ```
 
 The `files` field in `package.json` controls what ends up in the published tarball:
